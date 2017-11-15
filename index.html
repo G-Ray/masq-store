@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Masq Storage Hub</title>
+<script type="text/javascript" src="src/index.js"></script>
+<script>
+    window.CrossStorageHub.init([
+        {origin: /(localhost):9999$/, allow: ['get', 'set', 'del']}
+        // {origin: /:\/\/(www\.)?example.com$/, allow: ['get']}
+    ])
+</script>
+</head>
+
+</html>
