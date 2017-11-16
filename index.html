@@ -4,10 +4,12 @@
 <title>Masq Storage Hub</title>
 <script type="text/javascript" src="src/index.js"></script>
 <script>
-    window.CrossStorageHub.init([
-        {origin: /(localhost):9999$/, allow: ['get', 'set', 'del']}
-        // {origin: /:\/\/(www\.)?example.com$/, allow: ['get']}
-    ])
+    window.MasqHub.init({
+      permissions: [
+            {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'getData', 'setData']}
+      ],
+      debug: false
+    })
 </script>
 </head>
 
