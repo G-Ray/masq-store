@@ -15,7 +15,7 @@
    *    The value of origin is expected to be a RegExp, and allow, an array of strings.
    *    The cross storage hub is then initialized to accept requests from any of
    *    the matching origins, allowing access to the associated lists of methods.
-   *    Methods may include any of: get, set, del, getData and clear. A 'ready'
+   *    Methods may include any of: get, set, del, clear, getAll and setAll. A 'ready'
    *    message is sent to the parent window once complete.
    *  - debug flag
    * @example
@@ -73,7 +73,7 @@
   /**
    * The message handler for all requests posted to the window. It ignores any
    * messages having an origin that does not match the originally supplied
-   * pattern. Given a JSON object with one of get, set, del or getData as the
+   * pattern. Given a JSON object with one of get, set, del or getAll as the
    * method, the function performs the requested action and returns its result.
    *
    * @param {MessageEvent} message A message to be processed
@@ -133,7 +133,7 @@
   /**
    * Returns a boolean indicating whether or not the requested method is
    * permitted for the given origin. The argument passed to method is expected
-   * to be one of 'get', 'set', 'del', 'clear', 'getData' or 'setData'.
+   * to be one of 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'.
    *
    * @param   {string} origin The origin for which to determine permissions
    * @param   {string} method Requested action
@@ -142,7 +142,7 @@
   MasqHub._permitted = function (origin, method) {
     var available, i, entry, match
 
-    available = ['get', 'set', 'del', 'clear', 'getData', 'setData']
+    available = ['get', 'set', 'del', 'clear', 'getAll', 'setAll']
     if (!MasqHub._inArray(method, available)) {
       return false
     }
@@ -170,7 +170,7 @@
    */
   MasqHub._set = function (origin, params) {
     // TODO throttle writing to once per second
-    var data = MasqHub._getData(origin)
+    var data = MasqHub._getAll(origin)
     data[params.key] = params.value
     window.localStorage.setItem(origin, JSON.stringify(data))
   }
@@ -189,7 +189,7 @@
 
     result = []
 
-    data = MasqHub._getData(origin)
+    data = MasqHub._getAll(origin)
 
     for (i = 0; i < params.keys.length; i++) {
       try {
@@ -211,11 +211,11 @@
    * @param {object} params An object with an array of keys
    */
   MasqHub._del = function (origin, params) {
-    var data = MasqHub._getData(origin)
+    var data = MasqHub._getAll(origin)
     for (var i = 0; i < params.keys.length; i++) {
       delete data[params.keys[i]]
     }
-    window.localStorage.setItem(JSON.stringify(data))
+    window.localStorage.setItem(origin, JSON.stringify(data))
   }
 
   /**
@@ -233,7 +233,7 @@
    * @param   {string} origin The origin of the request
    * @returns {object} The data corresponding to the origin
    */
-  MasqHub._getData = function (origin) {
+  MasqHub._getAll = function (origin) {
     var data = window.localStorage.getItem(origin)
     if (!data || data.length === 0) {
       return {}
@@ -251,7 +251,7 @@
    * @param   {string} origin The origin of the request
    * @param   {object} data The data payload
    */
-  MasqHub._setData = function (origin, data) {
+  MasqHub._setAll = function (origin, data) {
     window.localStorage.setItem(origin, JSON.stringify(data))
   }
 
