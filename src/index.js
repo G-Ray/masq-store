@@ -41,7 +41,7 @@
 
     if (!available) {
       try {
-        return window.parent.postMessage('cross-storage:unavailable', '*')
+        return window.parent.postMessage({'cross-storage': 'unavailable'}, '*')
       } catch (e) {
         return
       }
@@ -50,7 +50,7 @@
     MasqHub._debug = parameters.debug || false
     MasqHub._permissions = parameters.permissions || []
     MasqHub._installListener()
-    window.parent.postMessage('cross-storage:ready', '*')
+    window.parent.postMessage({'cross-storage': 'ready'}, '*')
 
     MasqHub._log('Listening to clients...')
   }
@@ -85,16 +85,16 @@
     origin = (message.origin === 'null') ? 'file://' : message.origin
 
     // Handle polling for a ready message
-    if (message.data === 'cross-storage:poll') {
-      return window.parent.postMessage('cross-storage:ready', message.origin)
+    if (message.data['cross-storage'] === 'poll') {
+      return window.parent.postMessage({'cross-storage': 'ready'}, message.origin)
     }
 
     // Ignore the ready message when viewing the hub directly
-    if (message.data === 'cross-storage:ready') return
+    if (message.data['cross-storage'] === 'ready') return
 
     // Check whether message.data is a valid json
     try {
-      request = JSON.parse(message.data)
+      request = message.data
     } catch (err) {
       return
     }
@@ -104,25 +104,23 @@
       return
     }
 
-    method = request.method.split('cross-storage:')[1]
-
-    if (!method) {
+    if (!request.method) {
       return
-    } else if (!MasqHub._permitted(origin, method)) {
-      error = 'Invalid permissions for ' + method
+    } else if (!MasqHub._permitted(origin, request.method)) {
+      error = 'Invalid ' + request.method + ' permissions for ' + origin
     } else {
       try {
-        result = MasqHub['_' + method](origin, request.params)
+        result = MasqHub['_' + request.method](origin, request.params)
       } catch (err) {
         error = err.message
       }
     }
 
-    response = JSON.stringify({
+    response = {
       client: request.client,
       error: error,
       result: result
-    })
+    }
 
     MasqHub._log('Received data:' + response)
 
@@ -240,7 +238,11 @@
     if (!data || data.length === 0) {
       return {}
     }
-    return JSON.parse(data)
+    try {
+      return JSON.parse(data)
+    } catch (err) {
+      return {}
+    }
   }
 
   /**
@@ -250,7 +252,7 @@
    * @param   {object} data The data payload
    */
   MasqHub._setData = function (origin, data) {
-    window.localStorage.setItem(origin, data)
+    window.localStorage.setItem(origin, JSON.stringify(data))
   }
 
   /**
@@ -278,6 +280,16 @@
    */
   MasqHub._isEmpty = function (obj) {
     return Object.keys(obj).length === 0
+  }
+
+  /**
+   * Returns whether or not a variable is an object.
+   *
+   * @param   {*} variable The variable to check
+   * @returns {bool} Whether or not the variable is an object
+   */
+  MasqHub._isObject = function (variable) {
+    return typeof (variable) === 'object'
   }
 
   /**
