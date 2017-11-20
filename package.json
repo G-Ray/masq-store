@@ -25,7 +25,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://git.qwant.ninja/masq/hub.git"
+    "url": "https://github.com/QwantResearch/masq-hub.git"
   },
   "dependencies": {
     "cross-storage": "^1.0.0"
