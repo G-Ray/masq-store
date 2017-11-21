@@ -1,12 +1,22 @@
-let debug = false
-let permissionList = []
-const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll']
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.MasqHub = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+'use strict';
 
-const log = (...text) => {
-  if (debug) {
-    console.log(text)
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+var debug = false;
+var permissionList = [];
+var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll'];
+
+var log = function log() {
+  for (var _len = arguments.length, text = Array(_len), _key = 0; _key < _len; _key++) {
+    text[_key] = arguments[_key];
   }
-}
+
+  if (debug) {
+    console.log(text);
+  }
+};
 
 /**
  * Forked from https://github.com/zendesk/cross-storage
@@ -29,32 +39,32 @@ const log = (...text) => {
  *
  * @param {array} parameters An array of objects used for configuration
  */
-export const init = (parameters) => {
-  let available = true
+var init = exports.init = function init(parameters) {
+  var available = true;
 
   // Return if localStorage is unavailable, or third party
   // access is disabled
   try {
-    if (!window.localStorage) available = false
+    if (!window.localStorage) available = false;
   } catch (e) {
-    available = false
+    available = false;
   }
 
   if (!available) {
     try {
-      return window.parent.postMessage({'cross-storage': 'unavailable'}, '*')
+      return window.parent.postMessage({ 'cross-storage': 'unavailable' }, '*');
     } catch (e) {
-      return
+      return;
     }
   }
 
-  debug = parameters.debug
-  permissionList = parameters.permissions || []
-  installListener()
-  window.parent.postMessage({'cross-storage': 'ready'}, '*')
+  debug = parameters.debug;
+  permissionList = parameters.permissions || [];
+  installListener();
+  window.parent.postMessage({ 'cross-storage': 'ready' }, '*');
 
-  log('Listening to clients...')
-}
+  log('Listening to clients...');
+};
 
 /**
  * Installs the necessary listener for the window message event. Accommodates
@@ -62,13 +72,13 @@ export const init = (parameters) => {
  *
  * @private
  */
-const installListener = () => {
+var installListener = function installListener() {
   if (window.addEventListener) {
-    window.addEventListener('message', listener, false)
+    window.addEventListener('message', listener, false);
   } else {
-    window.attachEvent('onmessage', listener)
+    window.attachEvent('onmessage', listener);
   }
-}
+};
 
 /**
  * The message handler for all requests posted to the window. It ignores any
@@ -78,64 +88,70 @@ const installListener = () => {
  *
  * @param {MessageEvent} message A message to be processed
  */
-const listener = (message) => {
-  let origin, targetOrigin, request, method, error, result, response
+var listener = function listener(message) {
+  var origin = void 0,
+      targetOrigin = void 0,
+      request = void 0,
+      method = void 0,
+      error = void 0,
+      result = void 0,
+      response = void 0;
 
   // postMessage returns the string "null" as the origin for "file://"
-  origin = (message.origin === 'null') ? 'file://' : message.origin
+  origin = message.origin === 'null' ? 'file://' : message.origin;
 
   // Handle polling for a ready message
   if (message.data['cross-storage'] === 'poll') {
-    return window.parent.postMessage({'cross-storage': 'ready'}, message.origin)
+    return window.parent.postMessage({ 'cross-storage': 'ready' }, message.origin);
   }
 
   // Ignore the ready message when viewing the hub directly
-  if (message.data['cross-storage'] === 'ready') return
+  if (message.data['cross-storage'] === 'ready') return;
 
   // Check whether message.data is a valid json
   try {
-    request = message.data
+    request = message.data;
   } catch (err) {
-    return
+    return;
   }
 
   // Check whether request.method is a string
   if (!request || typeof request.method !== 'string') {
-    return
+    return;
   }
 
   if (!request.method) {
-    return
+    return;
   } else if (!isPermitted(origin, request.method)) {
-    error = `Invalid ${request.method} permissions for ${origin}`
+    error = 'Invalid ' + request.method + ' permissions for ' + origin;
   } else {
     try {
-      log(request.method)
+      log(request.method);
       // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
       switch (request.method) {
         case 'get':
-          result = get(origin, request.params)
-          break
+          result = get(origin, request.params);
+          break;
         case 'set':
-          result = set(origin, request.params)
-          break
+          result = set(origin, request.params);
+          break;
         case 'del':
-          result = del(origin, request.params)
-          break
+          result = del(origin, request.params);
+          break;
         case 'clear':
-          result = clear(origin, request.params)
-          break
+          result = clear(origin, request.params);
+          break;
         case 'getAll':
-          result = getAll(origin, request.params)
-          break
+          result = getAll(origin, request.params);
+          break;
         case 'setAll':
-          result = setAll(origin, request.params)
-          break
+          result = setAll(origin, request.params);
+          break;
         default:
-          break
+          break;
       }
     } catch (err) {
-      error = err.message
+      error = err.message;
     }
   }
 
@@ -143,15 +159,15 @@ const listener = (message) => {
     client: request.client,
     error: error,
     result: result
-  }
+  };
 
-  log('Sendind response data:', response)
+  log('Sendind response data:', response);
 
   // postMessage requires that the target origin be set to "*" for "file://"
-  targetOrigin = (origin === 'file://') ? '*' : origin
+  targetOrigin = origin === 'file://' ? '*' : origin;
 
-  window.parent.postMessage(response, targetOrigin)
-}
+  window.parent.postMessage(response, targetOrigin);
+};
 
 /**
  * Returns a boolean indicating whether or not the requested method is
@@ -162,27 +178,29 @@ const listener = (message) => {
  * @param   {string} method Requested action
  * @returns {bool}   Whether or not the request is permitted
  */
-const isPermitted = (origin, method) => {
-  let i, entry, match
+var isPermitted = function isPermitted(origin, method) {
+  var i = void 0,
+      entry = void 0,
+      match = void 0;
 
   if (!inArray(method, availableMethods)) {
-    return false
+    return false;
   }
 
   for (i = 0; i < permissionList.length; i++) {
-    entry = permissionList[i]
+    entry = permissionList[i];
     if (!(entry.origin instanceof RegExp) || !(entry.allow instanceof Array)) {
-      continue
+      continue;
     }
 
-    match = entry.origin.test(origin)
+    match = entry.origin.test(origin);
     if (match && inArray(method, entry.allow)) {
-      return true
+      return true;
     }
   }
 
-  return false
-}
+  return false;
+};
 
 /**
  * Sets a key to the specified value, based on the origin of the request.
@@ -190,12 +208,12 @@ const isPermitted = (origin, method) => {
  * @param {string} origin The origin of the request
  * @param {object} params An object with key and value
  */
-const set = (origin, params) => {
+var set = function set(origin, params) {
   // TODO throttle writing to once per second
-  let data = getAll(origin)
-  data[params.key] = params.value
-  window.localStorage.setItem(origin, JSON.stringify(data))
-}
+  var data = getAll(origin);
+  data[params.key] = params.value;
+  window.localStorage.setItem(origin, JSON.stringify(data));
+};
 
 /**
  * Accepts an object with an array of keys for which to retrieve their values.
@@ -206,24 +224,26 @@ const set = (origin, params) => {
  * @param   {object} params An object with an array of keys
  * @returns {*|*[]}  Either a single value, or an array
  */
-const get = (origin, params) => {
-  let data, result, value
+var get = function get(origin, params) {
+  var data = void 0,
+      result = void 0,
+      value = void 0;
 
-  result = []
+  result = [];
 
-  data = getAll(origin)
+  data = getAll(origin);
 
-  for (let i = 0; i < params.keys.length; i++) {
+  for (var i = 0; i < params.keys.length; i++) {
     try {
-      value = data[params.keys[i]]
+      value = data[params.keys[i]];
     } catch (e) {
-      value = null
+      value = null;
     }
-    result.push(value)
+    result.push(value);
   }
 
-  return (result.length > 1) ? result : result[0]
-}
+  return result.length > 1 ? result : result[0];
+};
 
 /**
  * Deletes all keys specified in the array found at params.keys.
@@ -231,22 +251,22 @@ const get = (origin, params) => {
  * @param {string} origin The origin of the request
  * @param {object} params An object with an array of keys
  */
-const del = (origin, params) => {
-  let data = getAll(origin)
-  for (let i = 0; i < params.keys.length; i++) {
-    delete data[params.keys[i]]
+var del = function del(origin, params) {
+  var data = getAll(origin);
+  for (var i = 0; i < params.keys.length; i++) {
+    delete data[params.keys[i]];
   }
-  window.localStorage.setItem(origin, JSON.stringify(data))
-}
+  window.localStorage.setItem(origin, JSON.stringify(data));
+};
 
 /**
  * Clears localStorage.
  *
  * @param {string} origin The origin of the request
  */
-const clear = (origin) => {
-  window.localStorage.removeItem(origin)
-}
+var clear = function clear(origin) {
+  window.localStorage.removeItem(origin);
+};
 
 /**
  * Returns all data limited to the scope of the origin.
@@ -254,17 +274,17 @@ const clear = (origin) => {
  * @param   {string} origin The origin of the request
  * @returns {object} The data corresponding to the origin
  */
-const getAll = (origin) => {
-  let data = window.localStorage.getItem(origin)
+var getAll = function getAll(origin) {
+  var data = window.localStorage.getItem(origin);
   if (!data || data.length === 0) {
-    return {}
+    return {};
   }
   try {
-    return JSON.parse(data)
+    return JSON.parse(data);
   } catch (err) {
-    return {}
+    return {};
   }
-}
+};
 
 /**
  * Sets all data limited to the scope of the origin.
@@ -272,9 +292,9 @@ const getAll = (origin) => {
  * @param   {string} origin The origin of the request
  * @param   {object} data The data payload
  */
-const setAll = (origin, data) => {
-  window.localStorage.setItem(origin, JSON.stringify(data))
-}
+var setAll = function setAll(origin, data) {
+  window.localStorage.setItem(origin, JSON.stringify(data));
+};
 
 /**
  * Returns whether or not a value is present in the array. Consists of an
@@ -285,13 +305,13 @@ const setAll = (origin, data) => {
  * @param   {[]*}  array The array in which to search
  * @returns {bool} Whether or not the value was found
  */
-const inArray = (value, array) => {
-  for (let i = 0; i < array.length; i++) {
-    if (value === array[i]) return true
+var inArray = function inArray(value, array) {
+  for (var i = 0; i < array.length; i++) {
+    if (value === array[i]) return true;
   }
 
-  return false
-}
+  return false;
+};
 
 /**
  * Returns whether or not an object is empty.
@@ -326,3 +346,5 @@ const inArray = (value, array) => {
 
 //   return new Date().getTime()
 // }
+},{}]},{},[1])(1)
+});

@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <title>Masq Storage Hub</title>
-<script type="text/javascript" src="src/index.js"></script>
+<script type="text/javascript" src="dist/hub.js"></script>
 <script>
-    window.MasqHub.init({
+    MasqHub.init({
       permissions: [
             {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'clear', 'getAll', 'setAll']}
       ],
@@ -12,7 +12,4 @@
     })
 </script>
 </head>
-<body>
-  <h1>Server (hub)</h1>
-</body>
 </html>
