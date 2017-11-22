@@ -190,7 +190,7 @@ const isPermitted = (origin, method) => {
  * @param {string} origin The origin of the request
  * @param {object} params An object with key and value
  */
-const set = (origin, params) => {
+export const set = (origin, params) => {
   // TODO throttle writing to once per second
   let data = getAll(origin)
   data[params.key] = params.value
@@ -206,7 +206,7 @@ const set = (origin, params) => {
  * @param   {object} params An object with an array of keys
  * @returns {*|*[]}  Either a single value, or an array
  */
-const get = (origin, params) => {
+export const get = (origin, params) => {
   let data, result, value
 
   result = []
@@ -231,7 +231,7 @@ const get = (origin, params) => {
  * @param {string} origin The origin of the request
  * @param {object} params An object with an array of keys
  */
-const del = (origin, params) => {
+export const del = (origin, params) => {
   let data = getAll(origin)
   for (let i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]]
@@ -244,7 +244,7 @@ const del = (origin, params) => {
  *
  * @param {string} origin The origin of the request
  */
-const clear = (origin) => {
+export const clear = (origin) => {
   window.localStorage.removeItem(origin)
 }
 
@@ -254,7 +254,7 @@ const clear = (origin) => {
  * @param   {string} origin The origin of the request
  * @returns {object} The data corresponding to the origin
  */
-const getAll = (origin) => {
+export const getAll = (origin) => {
   let data = window.localStorage.getItem(origin)
   if (!data || data.length === 0) {
     return {}
@@ -272,7 +272,7 @@ const getAll = (origin) => {
  * @param   {string} origin The origin of the request
  * @param   {object} data The data payload
  */
-const setAll = (origin, data) => {
+export const setAll = (origin, data) => {
   window.localStorage.setItem(origin, JSON.stringify(data))
 }
 
