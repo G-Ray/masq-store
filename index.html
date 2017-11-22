@@ -6,7 +6,9 @@
 <script>
     MasqHub.init({
       permissions: [
-            {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'clear', 'getAll', 'setAll']}
+            {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'clear', 'getAll', 'setAll']},
+            {origin: /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'clear', 'getAll', 'setAll']},
+            {origin: /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'clear', 'getAll', 'setAll']}
       ],
       debug: false
     })
