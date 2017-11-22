@@ -208,7 +208,7 @@ var isPermitted = function isPermitted(origin, method) {
  * @param {string} origin The origin of the request
  * @param {object} params An object with key and value
  */
-var set = function set(origin, params) {
+var set = exports.set = function set(origin, params) {
   // TODO throttle writing to once per second
   var data = getAll(origin);
   data[params.key] = params.value;
@@ -224,7 +224,7 @@ var set = function set(origin, params) {
  * @param   {object} params An object with an array of keys
  * @returns {*|*[]}  Either a single value, or an array
  */
-var get = function get(origin, params) {
+var get = exports.get = function get(origin, params) {
   var data = void 0,
       result = void 0,
       value = void 0;
@@ -251,7 +251,7 @@ var get = function get(origin, params) {
  * @param {string} origin The origin of the request
  * @param {object} params An object with an array of keys
  */
-var del = function del(origin, params) {
+var del = exports.del = function del(origin, params) {
   var data = getAll(origin);
   for (var i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]];
@@ -264,7 +264,7 @@ var del = function del(origin, params) {
  *
  * @param {string} origin The origin of the request
  */
-var clear = function clear(origin) {
+var clear = exports.clear = function clear(origin) {
   window.localStorage.removeItem(origin);
 };
 
@@ -274,7 +274,7 @@ var clear = function clear(origin) {
  * @param   {string} origin The origin of the request
  * @returns {object} The data corresponding to the origin
  */
-var getAll = function getAll(origin) {
+var getAll = exports.getAll = function getAll(origin) {
   var data = window.localStorage.getItem(origin);
   if (!data || data.length === 0) {
     return {};
@@ -292,7 +292,7 @@ var getAll = function getAll(origin) {
  * @param   {string} origin The origin of the request
  * @param   {object} data The data payload
  */
-var setAll = function setAll(origin, data) {
+var setAll = exports.setAll = function setAll(origin, data) {
   window.localStorage.setItem(origin, JSON.stringify(data));
 };
 
