@@ -1,6 +1,11 @@
+import * as sync from './sync'
+import * as api from './api'
+
 let debug = false
 let permissionList = []
-const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll']
+let wsClient
+let clientId = ''
+const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta']
 
 const log = (...text) => {
   if (debug) {
@@ -32,6 +37,8 @@ const log = (...text) => {
 export const init = (parameters) => {
   let available = true
 
+  debug = parameters.debug
+
   // Return if localStorage is unavailable, or third party
   // access is disabled
   try {
@@ -48,26 +55,44 @@ export const init = (parameters) => {
     }
   }
 
-  debug = parameters.debug
   permissionList = parameters.permissions || []
-  installListener()
-  window.parent.postMessage({'cross-storage': 'ready'}, '*')
 
-  log('Listening to clients...')
+  sync.initWSClient('foo').then((ws) => {
+    wsClient = ws
+
+    wsClient.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        const response = prepareResponse(data.origin, data.request)
+
+        log(`Sendind updated data: ${response}`)
+
+        // postMessage requires that the target origin be set to "*" for "file://"
+        const targetOrigin = (data.origin === 'file://') ? '*' : data.origin
+        window.parent.postMessage(response, targetOrigin)
+      } catch (err) {
+        log(err)
+      }
+    }
+
+    initListener()
+  }).catch((err) => {
+    log(err)
+    initListener()
+  })
 }
 
-/**
- * Installs the necessary listener for the window message event. Accommodates
- * IE8 and up.
- *
- * @private
- */
-const installListener = () => {
+const initListener = () => {
+  // Init listener
   if (window.addEventListener) {
     window.addEventListener('message', listener, false)
   } else {
     window.attachEvent('onmessage', listener)
   }
+  // All set, let the app know we're ready
+  window.parent.postMessage({'cross-storage': 'ready'}, '*')
+
+  log(`Listening to clients...`)
 }
 
 /**
@@ -79,7 +104,7 @@ const installListener = () => {
  * @param {MessageEvent} message A message to be processed
  */
 const listener = (message) => {
-  let origin, targetOrigin, request, method, error, result, response
+  let origin, targetOrigin, request, response
 
   // postMessage returns the string "null" as the origin for "file://"
   origin = (message.origin === 'null') ? 'file://' : message.origin
@@ -104,53 +129,80 @@ const listener = (message) => {
     return
   }
 
+  // Init a placeholder response object
+  response = {
+    client: request.client,
+    result: {}
+  }
+  if (request.client) {
+    clientId = request.client
+  }
+
   if (!request.method) {
     return
   } else if (!isPermitted(origin, request.method)) {
-    error = `Invalid ${request.method} permissions for ${origin}`
+    response.error = `Invalid ${request.method} permissions for ${origin}`
   } else {
-    try {
-      log(request.method)
-      // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
-      switch (request.method) {
-        case 'get':
-          result = get(origin, request.params)
-          break
-        case 'set':
-          result = set(origin, request.params)
-          break
-        case 'del':
-          result = del(origin, request.params)
-          break
-        case 'clear':
-          result = clear(origin, request.params)
-          break
-        case 'getAll':
-          result = getAll(origin, request.params)
-          break
-        case 'setAll':
-          result = setAll(origin, request.params)
-          break
-        default:
-          break
-      }
-    } catch (err) {
-      error = err.message
+    response = prepareResponse(origin, request)
+    // Also send the changes to other devices
+    if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
+      sync.send(wsClient, origin, request)
     }
   }
 
-  response = {
-    client: request.client,
-    error: error,
-    result: result
-  }
-
-  log('Sendind response data:', response)
+  log(`Sendind response data: ${response}`)
 
   // postMessage requires that the target origin be set to "*" for "file://"
   targetOrigin = (origin === 'file://') ? '*' : origin
 
   window.parent.postMessage(response, targetOrigin)
+}
+
+/**
+ * Returns a response object to the application requesting an action.
+ *
+ * @param   {string} origin The origin for which to determine permissions
+ * @param   {object} request Requested object sent by the application
+ * @returns {object} Response object
+ */
+const prepareResponse = (origin, request) => {
+  let error, result
+  try {
+    // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
+    switch (request.method) {
+      case 'get':
+        result = api.get(origin, request.params)
+        break
+      case 'set':
+        result = api.set(origin, request.params)
+        break
+      case 'del':
+        result = api.del(origin, request.params)
+        break
+      case 'clear':
+        result = api.clear(origin)
+        break
+      case 'getAll':
+        result = api.getAll(origin)
+        break
+      case 'setAll':
+        result = api.setAll(origin, request.params)
+        break
+      case 'getMeta':
+        result = api.getMeta(origin)
+        break
+      default:
+        break
+    }
+  } catch (err) {
+    error = err.message
+  }
+
+  return {
+    client: request.client || clientId,
+    error: error,
+    result: result
+  }
 }
 
 /**
@@ -165,7 +217,7 @@ const listener = (message) => {
 const isPermitted = (origin, method) => {
   let i, entry, match
 
-  if (!inArray(method, availableMethods)) {
+  if (availableMethods.indexOf(method) < 0) {
     return false
   }
 
@@ -176,118 +228,9 @@ const isPermitted = (origin, method) => {
     }
 
     match = entry.origin.test(origin)
-    if (match && inArray(method, entry.allow)) {
+    if (match && entry.allow.indexOf(method) >= 0) {
       return true
     }
-  }
-
-  return false
-}
-
-/**
- * Sets a key to the specified value, based on the origin of the request.
- *
- * @param {string} origin The origin of the request
- * @param {object} params An object with key and value
- */
-export const set = (origin, params) => {
-  // TODO throttle writing to once per second
-  let data = getAll(origin)
-  data[params.key] = params.value
-  window.localStorage.setItem(origin, JSON.stringify(data))
-}
-
-/**
- * Accepts an object with an array of keys for which to retrieve their values.
- * Returns a single value if only one key was supplied, otherwise it returns
- * an array. Any keys not set result in a null element in the resulting array.
- *
- * @param   {string} origin The origin of the request
- * @param   {object} params An object with an array of keys
- * @returns {*|*[]}  Either a single value, or an array
- */
-export const get = (origin, params) => {
-  let data, result, value
-
-  result = []
-
-  data = getAll(origin)
-
-  for (let i = 0; i < params.keys.length; i++) {
-    try {
-      value = data[params.keys[i]]
-    } catch (e) {
-      value = null
-    }
-    result.push(value)
-  }
-
-  return (result.length > 1) ? result : result[0]
-}
-
-/**
- * Deletes all keys specified in the array found at params.keys.
- *
- * @param {string} origin The origin of the request
- * @param {object} params An object with an array of keys
- */
-export const del = (origin, params) => {
-  let data = getAll(origin)
-  for (let i = 0; i < params.keys.length; i++) {
-    delete data[params.keys[i]]
-  }
-  window.localStorage.setItem(origin, JSON.stringify(data))
-}
-
-/**
- * Clears localStorage.
- *
- * @param {string} origin The origin of the request
- */
-export const clear = (origin) => {
-  window.localStorage.removeItem(origin)
-}
-
-/**
- * Returns all data limited to the scope of the origin.
- *
- * @param   {string} origin The origin of the request
- * @returns {object} The data corresponding to the origin
- */
-export const getAll = (origin) => {
-  let data = window.localStorage.getItem(origin)
-  if (!data || data.length === 0) {
-    return {}
-  }
-  try {
-    return JSON.parse(data)
-  } catch (err) {
-    return {}
-  }
-}
-
-/**
- * Sets all data limited to the scope of the origin.
- *
- * @param   {string} origin The origin of the request
- * @param   {object} data The data payload
- */
-export const setAll = (origin, data) => {
-  window.localStorage.setItem(origin, JSON.stringify(data))
-}
-
-/**
- * Returns whether or not a value is present in the array. Consists of an
- * alternative to extending the array prototype for indexOf, since it's
- * unavailable for IE8.
- *
- * @param   {*}    value The value to find
- * @param   {[]*}  array The array in which to search
- * @returns {bool} Whether or not the value was found
- */
-const inArray = (value, array) => {
-  for (let i = 0; i < array.length; i++) {
-    if (value === array[i]) return true
   }
 
   return false
@@ -311,18 +254,4 @@ const inArray = (value, array) => {
  */
 // const isObject = (variable) => {
 //   return typeof (variable) === 'object'
-// }
-
-/**
- * A cross-browser version of Date.now compatible with IE8 that avoids
- * modifying the Date object.
- *
- * @return {int} The current timestamp in milliseconds
- */
-// const now = () => {
-//   if (typeof Date.now === 'function') {
-//     return Date.now()
-//   }
-
-//   return new Date().getTime()
 // }

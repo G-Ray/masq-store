@@ -4,11 +4,12 @@
 <title>Masq Storage Hub</title>
 <script type="text/javascript" src="dist/hub.js"></script>
 <script>
+    var allowAll = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta']
     MasqHub.init({
       permissions: [
-            {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'clear', 'getAll', 'setAll']},
-            {origin: /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'clear', 'getAll', 'setAll']},
-            {origin: /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: ['get', 'set', 'del', 'clear', 'getAll', 'setAll']}
+            {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: allowAll},
+            {origin: /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: allowAll},
+            {origin: /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: allowAll}
       ],
       debug: false
     })
