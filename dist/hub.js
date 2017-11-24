@@ -14,8 +14,8 @@ var set = exports.set = function set(origin, params) {
   // TODO throttle writing to once per second
   var data = getAll(origin);
   data[params.key] = params.value;
+  data = setMeta(origin, data);
   window.localStorage.setItem(origin, JSON.stringify(data));
-  setMeta(origin);
 };
 
 /**
@@ -59,8 +59,8 @@ var del = exports.del = function del(origin, params) {
   for (var i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]];
   }
+  data = setMeta(origin, data);
   window.localStorage.setItem(origin, JSON.stringify(data));
-  setMeta(origin);
 };
 
 /**
@@ -97,8 +97,8 @@ var getAll = exports.getAll = function getAll(origin) {
  * @param   {object} data The data payload
  */
 var setAll = exports.setAll = function setAll(origin, data) {
+  data = setMeta(origin, data);
   window.localStorage.setItem(origin, JSON.stringify(data));
-  setMeta(origin);
 };
 
 /**
@@ -108,12 +108,13 @@ var setAll = exports.setAll = function setAll(origin, data) {
  * @return  {object} The metadata payload
  */
 var getMeta = exports.getMeta = function getMeta(origin) {
-  var data = window.localStorage.getItem('meta_' + origin);
+  var data = window.localStorage.getItem(origin);
   if (!data || data.length === 0) {
     return {};
   }
   try {
-    return JSON.parse(data);
+    var parsed = JSON.parse(data);
+    return parsed._meta;
   } catch (err) {
     return {};
   }
@@ -123,12 +124,16 @@ var getMeta = exports.getMeta = function getMeta(origin) {
  * Sets the metadata for a given origin.
  *
  * @param   {string} origin The origin of the request
- * @param   {object} data The metadata payload
+ * @param   {object} data The data object
+ * @param   {object} meta Extra metadata
  */
-var setMeta = exports.setMeta = function setMeta(origin, data) {
-  data = data || {};
-  data.updated = now();
-  window.localStorage.setItem('meta_' + origin, JSON.stringify(data));
+var setMeta = exports.setMeta = function setMeta(origin, data, meta) {
+  meta = meta || {};
+  if (!meta.updated) {
+    meta.updated = now();
+  }
+  data._meta = meta;
+  return data;
 };
 
 /**
@@ -230,7 +235,9 @@ var init = exports.init = function init(parameters) {
         var data = JSON.parse(event.data);
         var response = prepareResponse(data.origin, data.request);
 
-        log('Sendind updated data: ' + response);
+        // Force the client ID to be the local one
+        response.client = clientId;
+        response.sync = true;
 
         // postMessage requires that the target origin be set to "*" for "file://"
         var targetOrigin = data.origin === 'file://' ? '*' : data.origin;
@@ -367,11 +374,13 @@ var prepareResponse = function prepareResponse(origin, request) {
     error = err.message;
   }
 
-  return {
+  var ret = {
     client: request.client || clientId,
     error: error,
     result: result
   };
+
+  return ret;
 };
 
 /**

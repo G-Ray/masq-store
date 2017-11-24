@@ -8,8 +8,8 @@ export const set = (origin, params) => {
     // TODO throttle writing to once per second
   let data = getAll(origin)
   data[params.key] = params.value
+  data = setMeta(origin, data)
   window.localStorage.setItem(origin, JSON.stringify(data))
-  setMeta(origin)
 }
 
 /**
@@ -51,8 +51,8 @@ export const del = (origin, params) => {
   for (let i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]]
   }
+  data = setMeta(origin, data)
   window.localStorage.setItem(origin, JSON.stringify(data))
-  setMeta(origin)
 }
 
 /**
@@ -89,8 +89,8 @@ export const getAll = (origin) => {
  * @param   {object} data The data payload
  */
 export const setAll = (origin, data) => {
+  data = setMeta(origin, data)
   window.localStorage.setItem(origin, JSON.stringify(data))
-  setMeta(origin)
 }
 
 /**
@@ -100,12 +100,13 @@ export const setAll = (origin, data) => {
  * @return  {object} The metadata payload
  */
 export const getMeta = (origin) => {
-  const data = window.localStorage.getItem(`meta_${origin}`)
+  const data = window.localStorage.getItem(origin)
   if (!data || data.length === 0) {
     return {}
   }
   try {
-    return JSON.parse(data)
+    const parsed = JSON.parse(data)
+    return parsed._meta
   } catch (err) {
     return {}
   }
@@ -115,12 +116,16 @@ export const getMeta = (origin) => {
  * Sets the metadata for a given origin.
  *
  * @param   {string} origin The origin of the request
- * @param   {object} data The metadata payload
+ * @param   {object} data The data object
+ * @param   {object} meta Extra metadata
  */
-export const setMeta = (origin, data) => {
-  data = data || {}
-  data.updated = now()
-  window.localStorage.setItem(`meta_${origin}`, JSON.stringify(data))
+export const setMeta = (origin, data, meta) => {
+  meta = meta || {}
+  if (!meta.updated) {
+    meta.updated = now()
+  }
+  data._meta = meta
+  return data
 }
 
 /**

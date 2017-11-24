@@ -56,16 +56,19 @@ export const init = (parameters) => {
   }
 
   permissionList = parameters.permissions || []
+  parameters.roomId = parameters.roomId || 'foo'
 
-  sync.initWSClient('foo').then((ws) => {
+  sync.initWSClient(parameters.roomId, parameters.wsServer).then((ws) => {
     wsClient = ws
 
     wsClient.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        const response = prepareResponse(data.origin, data.request)
+        let response = prepareResponse(data.origin, data.request)
 
-        log(`Sendind updated data: ${response}`)
+        // Force the client ID to be the local one
+        response.client = clientId
+        response.sync = true
 
         // postMessage requires that the target origin be set to "*" for "file://"
         const targetOrigin = (data.origin === 'file://') ? '*' : data.origin
@@ -198,11 +201,13 @@ const prepareResponse = (origin, request) => {
     error = err.message
   }
 
-  return {
+  const ret = {
     client: request.client || clientId,
     error: error,
     result: result
   }
+
+  return ret
 }
 
 /**
