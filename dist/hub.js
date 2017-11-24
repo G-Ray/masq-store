@@ -227,7 +227,7 @@ var init = exports.init = function init(parameters) {
 
   permissionList = parameters.permissions || [];
 
-  sync.initWSClient('foo').then(function (ws) {
+  sync.initWSClient(parameters.syncserver, parameters.syncroom).then(function (ws) {
     wsClient = ws;
 
     wsClient.onmessage = function (event) {
@@ -442,23 +442,25 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.initWSClient = initWSClient;
-function initWSClient(room, server) {
-  // const channelName = 'user-session-id'
-  var local = 'ws://localhost:8080/';
+// import * as url from 'url'
 
+function initWSClient(server, room) {
   return new Promise(function (resolve, reject) {
-    server = server || local;
+    server = server || 'ws://localhost:8080';
+    room = room || 'foo';
+    // const wsUrl = url.resolve(server, room)
+    var wsUrl = window.URL !== undefined ? new window.URL(room, server) : server + room;
 
-    var ws = new window.WebSocket(server + room);
+    var ws = new window.WebSocket(wsUrl);
 
     ws.onopen = function () {
-      console.log('Connected to ' + server + room + '.');
+      console.log('Connected to ' + wsUrl + '.');
       // TODO: check if we need to sync with other devices
       return resolve(ws);
     };
 
     ws.onerror = function (event) {
-      var err = 'Could not connect to server at ' + server;
+      var err = 'Could not connect to server at ' + wsUrl;
       console.log(err);
       return reject(err);
     };

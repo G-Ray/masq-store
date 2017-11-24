@@ -56,9 +56,8 @@ export const init = (parameters) => {
   }
 
   permissionList = parameters.permissions || []
-  parameters.roomId = parameters.roomId || 'foo'
 
-  sync.initWSClient(parameters.roomId, parameters.wsServer).then((ws) => {
+  sync.initWSClient(parameters.syncserver, parameters.syncroom).then((ws) => {
     wsClient = ws
 
     wsClient.onmessage = (event) => {
