@@ -77,6 +77,9 @@ export const init = (parameters) => {
 
   // All set, let the client app know we're ready
   initListener()
+
+  // Initialize ServiceWorker
+  // initServiceWorker()
 }
 
 /**
@@ -106,7 +109,7 @@ const initWs = (parameters) => {
       }
     }
     wsClient.onclose = (event) => {
-      log(`WebSocket connection closed.`)
+      log(`WebSocket connection closed`)
         // Try to reconnect if the connection was closed
       if (event.wasClean === false || event.code === 1006) {
         log(`..trying to reconnect`)
@@ -137,6 +140,21 @@ const initListener = () => {
   window.parent.postMessage({'cross-storage': 'ready'}, '*')
 
   log(`Listening to clients...`)
+}
+
+const initServiceWorker = () => {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js', {scope: '/'})
+    .then((reg) => {
+      // registration worked
+      // check if we can update anything
+      // console.log(`Registration succeeded. Scope is ${reg.scope}`)
+      reg.update()
+    }).catch((error) => {
+      // registration failed
+      console.log(`Registration failed with ${error}`)
+    })
+  }
 }
 
 /**
