@@ -172,6 +172,7 @@ var permissionList = [];
 var wsClient = void 0;
 var clientId = '';
 var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta'];
+var wsTimeout = 3000; // Waiting (3s) for another attempt to reconnect to the WebSocket server
 
 var log = function log() {
   for (var _len = arguments.length, text = Array(_len), _key = 0; _key < _len; _key++) {
@@ -199,7 +200,9 @@ var log = function log() {
  * MasqHub.init({
  *   permissions: [{origin: /\.example.com$/,        allow: ['get']},
  *    {origin: /:(www\.)?example.com$/, allow: ['get', 'set', 'del']}],
- *   debug: false
+ *   debug: false,
+ *   syncroom: 'someRandomName',
+ *   syncserver: 'wss://....'
  * });
  *
  * @param {array} parameters An array of objects used for configuration
@@ -227,6 +230,32 @@ var init = exports.init = function init(parameters) {
 
   permissionList = parameters.permissions || [];
 
+  // Listen to online/offline events in order to trigger sync
+  if (navigator.onLine !== undefined) {
+    window.addEventListener('online', function () {
+      onlineStatus(true, parameters);
+    });
+    window.addEventListener('offline', function () {
+      onlineStatus(false, parameters);
+    });
+
+    onlineStatus(navigator.onLine, parameters);
+  } else {
+    // Cannot detect connection status, let's try to connect anyway the first time
+    initWs(parameters);
+  }
+
+  // All set, let the client app know we're ready
+  initListener();
+};
+
+/**
+ * Initialize the WebSocket client. This allows us to synchronize with the
+ * other devices for the user.
+ *
+ * The current implementation unfortunately mutates the wsClient variable.
+ */
+var initWs = function initWs(parameters) {
   sync.initWSClient(parameters.syncserver, parameters.syncroom).then(function (ws) {
     wsClient = ws;
 
@@ -246,14 +275,27 @@ var init = exports.init = function init(parameters) {
         log(err);
       }
     };
-
-    initListener();
+    wsClient.onclose = function (event) {
+      log('WebSocket connection closed.');
+      // Try to reconnect if the connection was closed
+      if (event.wasClean === false || event.code === 1006) {
+        log('..trying to reconnect');
+        if (!window.timerID) {
+          window.timerID = setInterval(function () {
+            initWs(parameters);
+          }, wsTimeout);
+        }
+      }
+    };
   }).catch(function (err) {
     log(err);
-    initListener();
   });
 };
 
+/**
+ * Initialize the window event listener for postMessage. This allows us to
+ * communicate with the apps running in the parent window of the <iframe>.
+ */
 var initListener = function initListener() {
   // Init listener
   if (window.addEventListener) {
@@ -416,6 +458,17 @@ var isPermitted = function isPermitted(origin, method) {
   return false;
 };
 
+var onlineStatus = function onlineStatus(online, parameters) {
+  if (online) {
+    initWs(parameters);
+  } else {
+    if (wsClient) {
+      wsClient.close();
+    }
+    log('Working offline.');
+  }
+};
+
 /**
  * Returns whether or not an object is empty.
  *
@@ -442,6 +495,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.initWSClient = initWSClient;
+// TODO: find a better supported URL composer
 // import * as url from 'url'
 
 function initWSClient(server, room) {
@@ -454,14 +508,19 @@ function initWSClient(server, room) {
     var ws = new window.WebSocket(wsUrl);
 
     ws.onopen = function () {
-      console.log('Connected to ' + wsUrl + '.');
+      // throttle openning new sockets
+      if (window.timerID) {
+        window.clearInterval(window.timerID);
+        delete window.timerID;
+      }
+      // console.log(`Connected to ${wsUrl}`)
       // TODO: check if we need to sync with other devices
       return resolve(ws);
     };
 
     ws.onerror = function (event) {
       var err = 'Could not connect to server at ' + wsUrl;
-      console.log(err);
+      // console.log(err)
       return reject(err);
     };
   });

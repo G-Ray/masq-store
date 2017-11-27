@@ -6,6 +6,7 @@ let permissionList = []
 let wsClient
 let clientId = ''
 const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta']
+const wsTimeout = 3000 // Waiting (3s) for another attempt to reconnect to the WebSocket server
 
 const log = (...text) => {
   if (debug) {
@@ -29,7 +30,9 @@ const log = (...text) => {
  * MasqHub.init({
  *   permissions: [{origin: /\.example.com$/,        allow: ['get']},
  *    {origin: /:(www\.)?example.com$/, allow: ['get', 'set', 'del']}],
- *   debug: false
+ *   debug: false,
+ *   syncroom: 'someRandomName',
+ *   syncserver: 'wss://....'
  * });
  *
  * @param {array} parameters An array of objects used for configuration
@@ -57,6 +60,32 @@ export const init = (parameters) => {
 
   permissionList = parameters.permissions || []
 
+  // Listen to online/offline events in order to trigger sync
+  if (navigator.onLine !== undefined) {
+    window.addEventListener('online', () => {
+      onlineStatus(true, parameters)
+    })
+    window.addEventListener('offline', () => {
+      onlineStatus(false, parameters)
+    })
+
+    onlineStatus(navigator.onLine, parameters)
+  } else {
+    // Cannot detect connection status, let's try to connect anyway the first time
+    initWs(parameters)
+  }
+
+  // All set, let the client app know we're ready
+  initListener()
+}
+
+/**
+ * Initialize the WebSocket client. This allows us to synchronize with the
+ * other devices for the user.
+ *
+ * The current implementation unfortunately mutates the wsClient variable.
+ */
+const initWs = (parameters) => {
   sync.initWSClient(parameters.syncserver, parameters.syncroom).then((ws) => {
     wsClient = ws
 
@@ -76,14 +105,27 @@ export const init = (parameters) => {
         log(err)
       }
     }
-
-    initListener()
+    wsClient.onclose = (event) => {
+      log(`WebSocket connection closed.`)
+        // Try to reconnect if the connection was closed
+      if (event.wasClean === false || event.code === 1006) {
+        log(`..trying to reconnect`)
+        if (!window.timerID) {
+          window.timerID = setInterval(() => {
+            initWs(parameters)
+          }, wsTimeout)
+        }
+      }
+    }
   }).catch((err) => {
     log(err)
-    initListener()
   })
 }
 
+/**
+ * Initialize the window event listener for postMessage. This allows us to
+ * communicate with the apps running in the parent window of the <iframe>.
+ */
 const initListener = () => {
   // Init listener
   if (window.addEventListener) {
@@ -238,6 +280,17 @@ const isPermitted = (origin, method) => {
   }
 
   return false
+}
+
+const onlineStatus = (online, parameters) => {
+  if (online) {
+    initWs(parameters)
+  } else {
+    if (wsClient) {
+      wsClient.close()
+    }
+    log(`Working offline.`)
+  }
 }
 
 /**
