@@ -18,7 +18,7 @@ self.addEventListener('activate', function (event) {
   console.log(`Activating new service worker...`)
 
   var cacheWhitelist = [staticCacheName]
-
+  // delete stale cache
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
