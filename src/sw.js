@@ -1,7 +1,7 @@
 const staticCacheName = 'app-cache-v1.0.0'
 const filesToCache = [
   '.',
-  'dist/hub.js',
+  'dist/store.js',
   'index.html'
 ]
 
