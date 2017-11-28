@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>Masq Storage Hub</title>
-<script type="text/javascript" src="dist/hub.js"></script>
+<title>Masq Data Store</title>
+<script type="text/javascript" src="dist/store.js"></script>
 <script type="text/javascript" src="sw.js"></script>
 <script>
   var allowAll = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta']
-  MasqHub.init({
+  MasqStore.init({
     permissions: [
           {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: allowAll},
           {origin: /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: allowAll},
@@ -16,7 +16,17 @@
   })
 
   // Install ServiceWorker to cache app files
-  // initServiceWorker()
+  // if ('serviceWorker' in navigator) {
+  //   navigator.serviceWorker.register('sw.js', {scope: '/'}).then((reg) => {
+  //     // registration worked
+  //     // check if we can update anything
+  //     // console.log('Registration succeeded. Scope is ' + reg.scope)
+  //     reg.update()
+  //   }).catch((error) => {
+  //     // registration failed
+  //     console.log('Registration failed with error:', error)
+  //   })
+  // }
 </script>
 </head>
 </html>
