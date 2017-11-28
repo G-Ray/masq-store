@@ -77,9 +77,6 @@ export const init = (parameters) => {
 
   // All set, let the client app know we're ready
   initListener()
-
-  // Initialize ServiceWorker
-  // initServiceWorker()
 }
 
 /**
