@@ -1,15 +1,69 @@
+// Default storage API
+const store = window.localStorage
+
+/**
+ * Returns a response object to the application requesting an action.
+ *
+ * @param   {string} origin The origin for which to determine permissions
+ * @param   {object} request Requested object sent by the application
+ * @param   {object} client The ID of the client performing the request
+ * @returns {object} Response object
+ */
+export const prepareResponse = (origin, request, client) => {
+  let error, result
+  const meta = { updated: request.updated }
+  try {
+    // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
+    switch (request.method) {
+      case 'get':
+        result = get(origin, request.params)
+        break
+      case 'set':
+        result = set(origin, request.params, meta)
+        break
+      case 'del':
+        result = del(origin, request.params, meta)
+        break
+      case 'clear':
+        result = clear(origin)
+        break
+      case 'getAll':
+        result = getAll(origin)
+        break
+      case 'setAll':
+        result = setAll(origin, request.params, meta)
+        break
+      default:
+        break
+    }
+  } catch (err) {
+    error = err.message
+  }
+
+  const ret = {
+    client: request.client || client,
+    error: error,
+    result: result
+  }
+
+  return ret
+}
+
 /**
  * Sets a key to the specified value, based on the origin of the request.
  *
  * @param {string} origin The origin of the request
  * @param {object} params An object with key and value
+ * @param {object} meta An object containing extra metadata
  */
-export const set = (origin, params) => {
+export const set = (origin, params, meta) => {
     // TODO throttle writing to once per second
   let data = getAll(origin)
   data[params.key] = params.value
-  data = setMeta(origin, data)
-  window.localStorage.setItem(origin, JSON.stringify(data))
+  // persist data in the store
+  store.setItem(origin, JSON.stringify(data))
+  // update the meta data and return the timestamp
+  return setMeta(origin, meta)
 }
 
 /**
@@ -45,14 +99,17 @@ export const get = (origin, params) => {
  *
  * @param {string} origin The origin of the request
  * @param {object} params An object with an array of keys
+ * @param {object} meta An object containing extra metadata
  */
-export const del = (origin, params) => {
+export const del = (origin, params, meta) => {
   let data = getAll(origin)
   for (let i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]]
   }
-  data = setMeta(origin, data)
-  window.localStorage.setItem(origin, JSON.stringify(data))
+  // persist data in th
+  store.setItem(origin, JSON.stringify(data))
+  // update the meta data and return the update timestamp
+  return setMeta(origin, meta)
 }
 
 /**
@@ -61,7 +118,7 @@ export const del = (origin, params) => {
  * @param {string} key The element to clear from localStorage
  */
 export const clear = (key) => {
-  window.localStorage.removeItem(key)
+  store.removeItem(key)
 }
 
 /**
@@ -71,7 +128,7 @@ export const clear = (key) => {
  * @returns {object} The data corresponding to the origin
  */
 export const getAll = (origin) => {
-  const data = window.localStorage.getItem(origin)
+  const data = store.getItem(origin)
   if (!data || data.length === 0) {
     return {}
   }
@@ -87,45 +144,126 @@ export const getAll = (origin) => {
  *
  * @param   {string} origin The origin of the request
  * @param   {object} data The data payload
+ * @param   {object} meta An object containing extra metadata
  */
-export const setAll = (origin, data) => {
-  data = setMeta(origin, data)
-  window.localStorage.setItem(origin, JSON.stringify(data))
+export const setAll = (origin, data, meta) => {
+  // persist data in th
+  store.setItem(origin, JSON.stringify(data))
+  // update the meta data and return the update timestamp
+  return setMeta(origin, meta)
 }
 
 /**
- * Gets all metadata for a given origin.
+ * Wrapper around the getAll function to get the meta for an origin
  *
- * @param   {string} origin The origin for which we want the metadata
- * @return  {object} The metadata payload
+ * @param   {string} origin The origin of the request
+ * @return  {object} The metadata corresponding to the origin
  */
 export const getMeta = (origin) => {
-  const data = window.localStorage.getItem(origin)
-  if (!data || data.length === 0) {
-    return {}
-  }
-  try {
-    const parsed = JSON.parse(data)
-    return parsed._meta
-  } catch (err) {
-    return {}
-  }
+  const item = (origin) ? `_meta_${origin}` : '_meta'
+  return getAll(item)
 }
-
 /**
  * Sets the metadata for a given origin.
  *
  * @param   {string} origin The origin of the request
- * @param   {object} data The data object
- * @param   {object} meta Extra metadata
+ * @param   {object} data Extra metadata
+ * @return  {int} The timestamp of the update operation
  */
-export const setMeta = (origin, data, meta) => {
-  meta = meta || {}
-  if (!meta.updated) {
-    meta.updated = now()
+export const setMeta = (origin, data) => {
+  // Use the timestamp as revision number for now
+  const updated = (data.updated) ? data.updated : now()
+
+  // Update global the store meta
+  let meta = getAll('_meta')
+  meta.updated = updated
+  store.setItem('_meta', JSON.stringify(meta))
+
+  // Update the origin meta
+  if (!data.updated) {
+    data.updated = updated
   }
-  data._meta = meta
+  store.setItem(`_meta_${origin}`, JSON.stringify(data))
+
+  return updated
+}
+
+/**
+ * Get a list of all the origins (apps) that store local data
+ *
+ * @return {array} Array containing all the origins
+ */
+export const appList = () => {
+  let list = []
+  for (let i = 0; i < store.length; i++) {
+    if (store.key(i).indexOf('_') !== 0) {
+      list.push(store.key(i))
+    }
+  }
+  return list
+}
+
+/**
+ * Get a list of meta data keys for the local (apps)
+ *
+ * @return {array} Array containing all the keys
+ */
+export const metaList = () => {
+  let list = []
+  for (let i = 0; i < store.length; i++) {
+    const item = store.key(i)
+    if (item.indexOf('_meta_') === 0) {
+      list.push(item.split('_meta_')[1])
+    }
+  }
+  return list
+}
+
+/**
+ * Exports all the data in the store
+ *
+ * @return {object} The contents of the store as key:value pairs
+ */
+export const exportJSON = () => {
+  let data = {}
+  for (let i = 0; i < store.length; i++) {
+    data[store.key(i)] = getAll(store.key(i))
+  }
   return data
+}
+
+/**
+ * Imports all the data from a different store
+ *
+ * @param {object} data The contents of the store as a JSON object
+ */
+export const importJSON = (data) => {
+  if (!data) {
+    return
+  }
+
+  for (let item in data) {
+    if (data.hasOwnProperty(item)) {
+      setAll(item, data[item])
+    }
+  }
+}
+
+/**
+ * Check
+ *
+ * @return {bool} If storage API is available
+ */
+export const isAvailable = () => {
+  let available = true
+  try {
+    if (!store) {
+      available = false
+    }
+  } catch (err) {
+    available = false
+  }
+  return available
 }
 
 /**
@@ -134,10 +272,9 @@ export const setMeta = (origin, data, meta) => {
  *
  * @return {int} The current timestamp in milliseconds
  */
-const now = () => {
+export const now = () => {
   if (typeof Date.now === 'function') {
     return Date.now()
   }
-
   return new Date().getTime()
 }

@@ -1,7 +1,7 @@
 'use strict';
 
 var staticCacheName = 'app-cache-v1.0.0';
-var filesToCache = ['.', 'dist/hub.js', 'index.html'];
+var filesToCache = ['.', 'dist/store.js', 'index.html'];
 
 self.addEventListener('install', function (event) {
   console.log('Attempting to install service worker and cache static assets');
@@ -14,7 +14,7 @@ self.addEventListener('activate', function (event) {
   console.log('Activating new service worker...');
 
   var cacheWhitelist = [staticCacheName];
-
+  // delete stale cache
   event.waitUntil(caches.keys().then(function (cacheNames) {
     return Promise.all(cacheNames.map(function (cacheName) {
       if (cacheWhitelist.indexOf(cacheName) < 0) {
@@ -33,10 +33,7 @@ self.addEventListener('fetch', function (event) {
     }
     console.log('Network request for ' + event.request.url);
     return fetch(event.request);
-
-    // TODO 4 - Add fetched files to the cache
   }).catch(function (err) {
     console.log(err);
-    // TODO 6 - Respond with custom offline page
   }));
 });

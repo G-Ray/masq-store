@@ -42,11 +42,8 @@ self.addEventListener('fetch', (event) => {
       }
       console.log(`Network request for ${event.request.url}`)
       return fetch(event.request)
-
-      // TODO 4 - Add fetched files to the cache
     }).catch((err) => {
       console.log(err)
-      // TODO 6 - Respond with custom offline page
     })
   )
 })

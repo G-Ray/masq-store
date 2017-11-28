@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.MasqHub = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.MasqStore = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8,19 +8,69 @@ Object.defineProperty(exports, "__esModule", {
 var store = window.localStorage;
 
 /**
+ * Returns a response object to the application requesting an action.
+ *
+ * @param   {string} origin The origin for which to determine permissions
+ * @param   {object} request Requested object sent by the application
+ * @param   {object} client The ID of the client performing the request
+ * @returns {object} Response object
+ */
+var prepareResponse = exports.prepareResponse = function prepareResponse(origin, request, client) {
+  var error = void 0,
+      result = void 0;
+  var meta = { updated: request.updated };
+  try {
+    // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
+    switch (request.method) {
+      case 'get':
+        result = get(origin, request.params);
+        break;
+      case 'set':
+        result = set(origin, request.params, meta);
+        break;
+      case 'del':
+        result = del(origin, request.params, meta);
+        break;
+      case 'clear':
+        result = clear(origin);
+        break;
+      case 'getAll':
+        result = getAll(origin);
+        break;
+      case 'setAll':
+        result = setAll(origin, request.params, meta);
+        break;
+      default:
+        break;
+    }
+  } catch (err) {
+    error = err.message;
+  }
+
+  var ret = {
+    client: request.client || client,
+    error: error,
+    result: result
+  };
+
+  return ret;
+};
+
+/**
  * Sets a key to the specified value, based on the origin of the request.
  *
  * @param {string} origin The origin of the request
  * @param {object} params An object with key and value
+ * @param {object} meta An object containing extra metadata
  */
-var set = exports.set = function set(origin, params) {
+var set = exports.set = function set(origin, params, meta) {
   // TODO throttle writing to once per second
   var data = getAll(origin);
   data[params.key] = params.value;
-  // update the meta data
-  setMeta(origin);
   // persist data in the store
   store.setItem(origin, JSON.stringify(data));
+  // update the meta data and return the timestamp
+  return setMeta(origin, meta);
 };
 
 /**
@@ -58,16 +108,17 @@ var get = exports.get = function get(origin, params) {
  *
  * @param {string} origin The origin of the request
  * @param {object} params An object with an array of keys
+ * @param {object} meta An object containing extra metadata
  */
-var del = exports.del = function del(origin, params) {
+var del = exports.del = function del(origin, params, meta) {
   var data = getAll(origin);
   for (var i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]];
   }
-  // update the meta data
-  setMeta(origin);
   // persist data in th
   store.setItem(origin, JSON.stringify(data));
+  // update the meta data and return the update timestamp
+  return setMeta(origin, meta);
 };
 
 /**
@@ -102,47 +153,109 @@ var getAll = exports.getAll = function getAll(origin) {
  *
  * @param   {string} origin The origin of the request
  * @param   {object} data The data payload
+ * @param   {object} meta An object containing extra metadata
  */
-var setAll = exports.setAll = function setAll(origin, data) {
-  // update the meta data
-  setMeta(origin);
-  // persist data in the store
+var setAll = exports.setAll = function setAll(origin, data, meta) {
+  // persist data in th
   store.setItem(origin, JSON.stringify(data));
+  // update the meta data and return the update timestamp
+  return setMeta(origin, meta);
 };
 
 /**
- * Gets all metadata for a given origin.
+ * Wrapper around the getAll function to get the meta for an origin
  *
- * @param   {string} origin The origin for which we want the metadata
- * @return  {object} The metadata payload
+ * @param   {string} origin The origin of the request
+ * @return  {object} The metadata corresponding to the origin
  */
 var getMeta = exports.getMeta = function getMeta(origin) {
-  var meta = store.getItem('_meta');
-  if (!meta || meta.length === 0) {
-    return {};
-  }
-  try {
-    var parsed = JSON.parse(meta);
-    return parsed;
-  } catch (err) {
-    return {};
-  }
+  var item = origin ? '_meta_' + origin : '_meta';
+  return getAll(item);
 };
-
 /**
  * Sets the metadata for a given origin.
  *
  * @param   {string} origin The origin of the request
- * @param   {object} meta Extra metadata
+ * @param   {object} data Extra metadata
+ * @return  {int} The timestamp of the update operation
  */
-var setMeta = exports.setMeta = function setMeta(origin, meta) {
-  if (!meta) {
-    meta = getMeta('_meta');
-  }
-  if (!meta.updated) {
-    meta.updated = now();
-  }
+var setMeta = exports.setMeta = function setMeta(origin, data) {
+  // Use the timestamp as revision number for now
+  var updated = data.updated ? data.updated : now();
+
+  // Update global the store meta
+  var meta = getAll('_meta');
+  meta.updated = updated;
   store.setItem('_meta', JSON.stringify(meta));
+
+  // Update the origin meta
+  if (!data.updated) {
+    data.updated = updated;
+  }
+  store.setItem('_meta_' + origin, JSON.stringify(data));
+
+  return updated;
+};
+
+/**
+ * Get a list of all the origins (apps) that store local data
+ *
+ * @return {array} Array containing all the origins
+ */
+var appList = exports.appList = function appList() {
+  var list = [];
+  for (var i = 0; i < store.length; i++) {
+    if (store.key(i).indexOf('_') !== 0) {
+      list.push(store.key(i));
+    }
+  }
+  return list;
+};
+
+/**
+ * Get a list of meta data keys for the local (apps)
+ *
+ * @return {array} Array containing all the keys
+ */
+var metaList = exports.metaList = function metaList() {
+  var list = [];
+  for (var i = 0; i < store.length; i++) {
+    var item = store.key(i);
+    if (item.indexOf('_meta_') === 0) {
+      list.push(item.split('_meta_')[1]);
+    }
+  }
+  return list;
+};
+
+/**
+ * Exports all the data in the store
+ *
+ * @return {object} The contents of the store as key:value pairs
+ */
+var exportJSON = exports.exportJSON = function exportJSON() {
+  var data = {};
+  for (var i = 0; i < store.length; i++) {
+    data[store.key(i)] = getAll(store.key(i));
+  }
+  return data;
+};
+
+/**
+ * Imports all the data from a different store
+ *
+ * @param {object} data The contents of the store as a JSON object
+ */
+var importJSON = exports.importJSON = function importJSON(data) {
+  if (!data) {
+    return;
+  }
+
+  for (var item in data) {
+    if (data.hasOwnProperty(item)) {
+      setAll(item, data[item]);
+    }
+  }
 };
 
 /**
@@ -168,7 +281,7 @@ var isAvailable = exports.isAvailable = function isAvailable() {
  *
  * @return {int} The current timestamp in milliseconds
  */
-var now = function now() {
+var now = exports.now = function now() {
   if (typeof Date.now === 'function') {
     return Date.now();
   }
@@ -215,15 +328,15 @@ var log = function log() {
  * Accepts an array of objects used for configuration:
  *  - an array of permissions containing objects with two keys: origin and allow.
  *    The value of origin is expected to be a RegExp, and allow, an array of strings.
- *    The cross storage hub is then initialized to accept requests from any of
+ *    The data store is then initialized to accept requests from any of
  *    the matching origins, allowing access to the associated lists of methods.
  *    Methods may include any of: get, set, del, clear, getAll and setAll. A 'ready'
  *    message is sent to the parent window once complete.
  *  - debug flag
  * @example
  * // Subdomain can get, but only root domain can set and del
- * MasqHub.init({
- *   permissions: [{origin: /\.example.com$/,        allow: ['get']},
+ * MasqStore.init({
+ *   permissions: [{origin: /\.example.com$/, allow: ['get']},
  *    {origin: /:(www\.)?example.com$/, allow: ['get', 'set', 'del']}],
  *   debug: false,
  *   syncroom: 'someRandomName',
@@ -275,18 +388,13 @@ var initWs = function initWs(parameters) {
   sync.initWSClient(parameters.syncserver, parameters.syncroom).then(function (ws) {
     wsClient = ws;
 
+    // Check if we need to sync the local store
+    sync.checkUpdates(wsClient, clientId);
+
     wsClient.onmessage = function (event) {
       try {
-        var data = JSON.parse(event.data);
-        var response = prepareResponse(data.origin, data.request);
-
-        // Force the client ID to be the local one
-        response.client = clientId;
-        response.sync = true;
-
-        // postMessage requires that the target origin be set to "*" for "file://"
-        var targetOrigin = data.origin === 'file://' ? '*' : data.origin;
-        window.parent.postMessage(response, targetOrigin);
+        var msg = JSON.parse(event.data);
+        sync.handleMessage(wsClient, msg, clientId);
       } catch (err) {
         log(err);
       }
@@ -326,20 +434,6 @@ var initListener = function initListener() {
   log('Listening to clients...');
 };
 
-var initServiceWorker = function initServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js', { scope: '/' }).then(function (reg) {
-      // registration worked
-      // check if we can update anything
-      // console.log(`Registration succeeded. Scope is ${reg.scope}`)
-      reg.update();
-    }).catch(function (error) {
-      // registration failed
-      console.log('Registration failed with ' + error);
-    });
-  }
-};
-
 /**
  * The message handler for all requests posted to the window. It ignores any
  * messages having an origin that does not match the originally supplied
@@ -357,18 +451,23 @@ var listener = function listener(message) {
   // postMessage returns the string "null" as the origin for "file://"
   origin = message.origin === 'null' ? 'file://' : message.origin;
 
-  // Handle polling for a ready message
-  if (message.data['cross-storage'] === 'poll') {
-    return window.parent.postMessage({ 'cross-storage': 'ready' }, message.origin);
-  }
-
-  // Ignore the ready message when viewing the hub directly
-  if (message.data['cross-storage'] === 'ready') return;
-
   // Check whether message.data is a valid json
   try {
     request = message.data;
   } catch (err) {
+    return;
+  }
+
+  if (request.client) {
+    clientId = request.client;
+  }
+
+  // Ignore the ready message when viewing the store directly
+  if (request['cross-storage'] === 'ready') return;
+
+  // Handle polling for a ready message
+  if (request['cross-storage'] === 'poll') {
+    window.parent.postMessage({ 'cross-storage': 'ready' }, message.origin);
     return;
   }
 
@@ -379,81 +478,28 @@ var listener = function listener(message) {
 
   // Init a placeholder response object
   response = {
-    client: request.client,
+    client: clientId,
     result: {}
   };
-  if (request.client) {
-    clientId = request.client;
-  }
 
   if (!request.method) {
     return;
   } else if (!isPermitted(origin, request.method)) {
     response.error = 'Invalid ' + request.method + ' permissions for ' + origin;
   } else {
-    response = prepareResponse(origin, request);
+    response = api.prepareResponse(origin, request, clientId);
     // Also send the changes to other devices
     if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
-      sync.send(wsClient, origin, request);
+      request.updated = response.result;
+      sync.push(wsClient, 'update', origin, request);
     }
   }
 
-  log('Sendind response data: ' + response);
+  log('Change detected: ' + response);
 
   // postMessage requires that the target origin be set to "*" for "file://"
   targetOrigin = origin === 'file://' ? '*' : origin;
-
   window.parent.postMessage(response, targetOrigin);
-};
-
-/**
- * Returns a response object to the application requesting an action.
- *
- * @param   {string} origin The origin for which to determine permissions
- * @param   {object} request Requested object sent by the application
- * @returns {object} Response object
- */
-var prepareResponse = function prepareResponse(origin, request) {
-  var error = void 0,
-      result = void 0;
-  try {
-    // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
-    switch (request.method) {
-      case 'get':
-        result = api.get(origin, request.params);
-        break;
-      case 'set':
-        result = api.set(origin, request.params);
-        break;
-      case 'del':
-        result = api.del(origin, request.params);
-        break;
-      case 'clear':
-        result = api.clear(origin);
-        break;
-      case 'getAll':
-        result = api.getAll(origin);
-        break;
-      case 'setAll':
-        result = api.setAll(origin, request.params);
-        break;
-      case 'getMeta':
-        result = api.getMeta(origin);
-        break;
-      default:
-        break;
-    }
-  } catch (err) {
-    error = err.message;
-  }
-
-  var ret = {
-    client: request.client || clientId,
-    error: error,
-    result: result
-  };
-
-  return ret;
 };
 
 /**
@@ -489,6 +535,13 @@ var isPermitted = function isPermitted(origin, method) {
   return false;
 };
 
+/**
+ * Handles the current online status of the store (online/offline) in order
+ * to manage the WebSocket client connection.
+ *
+ * @param   {bool} online Whether we're cure
+ * @param   {object} parameters Configuration parameters
+ */
 var onlineStatus = function onlineStatus(online, parameters) {
   if (online) {
     initWs(parameters);
@@ -525,9 +578,14 @@ var onlineStatus = function onlineStatus(online, parameters) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.checkUpdates = exports.handleMessage = exports.push = undefined;
 exports.initWSClient = initWSClient;
-// TODO: find a better supported URL composer
-// import * as url from 'url'
+
+var _api = require('./api');
+
+var api = _interopRequireWildcard(_api);
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
 function initWSClient(server, room) {
   return new Promise(function (resolve, reject) {
@@ -558,17 +616,97 @@ function initWSClient(server, room) {
 }
 
 /**
- * Sets all data limited to the scope of the origin.
+ * Push updated data limited to the scope of the origin.
  *
  * @param   {object} ws The WebSocket client
+ * @param   {string} type The type of the request
  * @param   {string} origin The origin of the request
  * @param   {object} request The request object
  */
-var send = exports.send = function send(ws, origin, request) {
+// TODO: find a better supported URL composer
+// import * as url from 'url'
+var push = exports.push = function push(ws, type, origin, request) {
   if (!ws || origin.length === 0 || Object.keys(request.params).length === 0) {
     return;
   }
-  ws.send(JSON.stringify({ origin: origin, request: request }));
+  var req = {
+    type: type,
+    origin: origin,
+    request: request
+  };
+  ws.send(JSON.stringify(req));
 };
-},{}]},{},[2])(2)
+
+var handleMessage = exports.handleMessage = function handleMessage(ws, msg, client) {
+  switch (msg.type) {
+    case 'update':
+      handleUpdates(msg, client);
+      break;
+    case 'check':
+      exportBackup(msg, ws);
+      break;
+    default:
+      break;
+  }
+};
+
+var handleUpdates = function handleUpdates(msg, client) {
+  console.log('Incoming update');
+  var meta = api.getMeta(msg.origin);
+  // no need to update local store if we have updated already to this version
+  if (meta.updated >= msg.request.updated) {
+    return;
+  }
+  // Prepare response for the client app
+  var response = api.prepareResponse(msg.origin, msg.request, client);
+
+  // Force the local client ID
+  response.client = client;
+  response.sync = true;
+
+  // postMessage requires that the target origin be set to "*" for "file://"
+  var targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
+  window.parent.postMessage(response, targetOrigin);
+};
+
+var exportBackup = function exportBackup(msg, ws) {
+  // Check if we have local data that was changed after the specified data
+  console.log('Incoming check');
+  if (msg.lastModified) {
+    var meta = api.getMeta(msg.origin);
+    if (meta.updated > msg.lastModified) {
+      // We have fresh data and we need to send it.
+      var resp = {
+        type: 'update',
+        client: msg.client,
+        origin: msg.origin,
+        request: {
+          method: 'setAll',
+          updated: meta.updated,
+          params: api.getAll(msg.origin)
+        }
+      };
+      console.log('Pushing update', resp);
+      ws.send(JSON.stringify(resp));
+    }
+  }
+};
+
+var checkUpdates = exports.checkUpdates = function checkUpdates(ws, client) {
+  if (!ws) {
+    return;
+  }
+  var appList = api.metaList();
+  for (var i = 0; i < appList.length; i++) {
+    var meta = api.getAll('_meta_' + appList[i]);
+    var req = {
+      type: 'check',
+      client: client,
+      origin: appList[i],
+      lastModified: meta.updated
+    };
+    ws.send(JSON.stringify(req));
+  }
+};
+},{"./api":1}]},{},[2])(2)
 });
