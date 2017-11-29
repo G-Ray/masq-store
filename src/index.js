@@ -77,10 +77,14 @@ export const init = (parameters) => {
  * The current implementation unfortunately mutates the wsClient variable.
  */
 const initWs = (parameters) => {
+  if (wsClient && wsClient.readyState === 1) {
+    return
+  }
   sync.initWSClient(parameters.syncserver, parameters.syncroom).then((ws) => {
     wsClient = ws
 
     // Check if we need to sync the local store
+    log(`Checking for updates on other peers`)
     sync.checkUpdates(wsClient, clientId)
 
     wsClient.onmessage = (event) => {

@@ -17,6 +17,7 @@ export function initWSClient (server, room) {
         window.clearInterval(window.timerID)
         delete window.timerID
       }
+
       // console.log(`Connected to ${wsUrl}`)
       // TODO: check if we need to sync with other devices
       return resolve(ws)
@@ -84,7 +85,6 @@ const handleUpdates = (msg, client) => {
 
 const exportBackup = (msg, ws) => {
   // Check if we have local data that was changed after the specified data
-  console.log('Incoming check')
   if (msg.lastModified) {
     const meta = api.getMeta(msg.origin)
     if (meta.updated > msg.lastModified) {
@@ -99,23 +99,22 @@ const exportBackup = (msg, ws) => {
           params: api.getAll(msg.origin)
         }
       }
-      console.log('Pushing update', resp)
       ws.send(JSON.stringify(resp))
     }
   }
 }
 
-export const checkUpdates = (ws, client) => {
+export const checkUpdates = (ws, client = '') => {
   if (!ws) {
     return
   }
   const appList = api.metaList()
   for (let i = 0; i < appList.length; i++) {
-    const meta = api.getAll(`_meta_${appList[i]}`)
+    const meta = api.getAll(appList[i])
     let req = {
       type: 'check',
       client: client,
-      origin: appList[i],
+      origin: appList[i].split('_meta_')[1],
       lastModified: meta.updated
     }
     ws.send(JSON.stringify(req))

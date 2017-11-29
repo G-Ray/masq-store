@@ -222,7 +222,7 @@ var metaList = exports.metaList = function metaList() {
   for (var i = 0; i < store.length; i++) {
     var item = store.key(i);
     if (item.indexOf('_meta_') === 0) {
-      list.push(item.split('_meta_')[1]);
+      list.push(item);
     }
   }
   return list;
@@ -385,10 +385,14 @@ var init = exports.init = function init(parameters) {
  * The current implementation unfortunately mutates the wsClient variable.
  */
 var initWs = function initWs(parameters) {
+  if (wsClient && wsClient.readyState === 1) {
+    return;
+  }
   sync.initWSClient(parameters.syncserver, parameters.syncroom).then(function (ws) {
     wsClient = ws;
 
     // Check if we need to sync the local store
+    log('Checking for updates on other peers');
     sync.checkUpdates(wsClient, clientId);
 
     wsClient.onmessage = function (event) {
@@ -602,6 +606,7 @@ function initWSClient(server, room) {
         window.clearInterval(window.timerID);
         delete window.timerID;
       }
+
       // console.log(`Connected to ${wsUrl}`)
       // TODO: check if we need to sync with other devices
       return resolve(ws);
@@ -671,7 +676,6 @@ var handleUpdates = function handleUpdates(msg, client) {
 
 var exportBackup = function exportBackup(msg, ws) {
   // Check if we have local data that was changed after the specified data
-  console.log('Incoming check');
   if (msg.lastModified) {
     var meta = api.getMeta(msg.origin);
     if (meta.updated > msg.lastModified) {
@@ -686,23 +690,24 @@ var exportBackup = function exportBackup(msg, ws) {
           params: api.getAll(msg.origin)
         }
       };
-      console.log('Pushing update', resp);
       ws.send(JSON.stringify(resp));
     }
   }
 };
 
-var checkUpdates = exports.checkUpdates = function checkUpdates(ws, client) {
+var checkUpdates = exports.checkUpdates = function checkUpdates(ws) {
+  var client = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+
   if (!ws) {
     return;
   }
   var appList = api.metaList();
   for (var i = 0; i < appList.length; i++) {
-    var meta = api.getAll('_meta_' + appList[i]);
+    var meta = api.getAll(appList[i]);
     var req = {
       type: 'check',
       client: client,
-      origin: appList[i],
+      origin: appList[i].split('_meta_')[1],
       lastModified: meta.updated
     };
     ws.send(JSON.stringify(req));

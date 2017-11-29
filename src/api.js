@@ -213,7 +213,7 @@ export const metaList = () => {
   for (let i = 0; i < store.length; i++) {
     const item = store.key(i)
     if (item.indexOf('_meta_') === 0) {
-      list.push(item.split('_meta_')[1])
+      list.push(item)
     }
   }
   return list
