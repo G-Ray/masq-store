@@ -1,6 +1,6 @@
 // TODO: find a better supported URL composer
 // import * as url from 'url'
-import * as api from './api'
+import * as store from './store'
 
 export function initWSClient (server, room) {
   return new Promise((resolve, reject) => {
@@ -48,7 +48,9 @@ export const push = (ws, type, origin, request) => {
     origin: origin,
     request: request
   }
-  ws.send(JSON.stringify(req))
+  if (ws.readyState === ws.OPEN) {
+    ws.send(JSON.stringify(req))
+  }
 }
 
 export const handleMessage = (ws, msg, client) => {
@@ -66,13 +68,13 @@ export const handleMessage = (ws, msg, client) => {
 
 const handleUpdates = (msg, client) => {
   console.log('Incoming update')
-  const meta = api.getMeta(msg.origin)
+  const meta = store.getMeta(msg.origin)
   // no need to update local store if we have updated already to this version
   if (meta.updated >= msg.request.updated) {
     return
   }
   // Prepare response for the client app
-  let response = api.prepareResponse(msg.origin, msg.request, client)
+  let response = store.prepareResponse(msg.origin, msg.request, client)
 
   // Force the local client ID
   response.client = client
@@ -86,7 +88,7 @@ const handleUpdates = (msg, client) => {
 const exportBackup = (msg, ws) => {
   // Check if we have local data that was changed after the specified data
   if (msg.lastModified) {
-    const meta = api.getMeta(msg.origin)
+    const meta = store.getMeta(msg.origin)
     if (meta.updated > msg.lastModified) {
       // We have fresh data and we need to send it.
       const resp = {
@@ -96,7 +98,7 @@ const exportBackup = (msg, ws) => {
         request: {
           method: 'setAll',
           updated: meta.updated,
-          params: api.getAll(msg.origin)
+          params: store.getAll(msg.origin)
         }
       }
       ws.send(JSON.stringify(resp))
@@ -108,9 +110,9 @@ export const checkUpdates = (ws, client = '') => {
   if (!ws) {
     return
   }
-  const appList = api.metaList()
+  const appList = store.metaList()
   for (let i = 0; i < appList.length; i++) {
-    const meta = api.getAll(appList[i])
+    const meta = store.getAll(appList[i])
     let req = {
       type: 'check',
       client: client,

@@ -1,5 +1,5 @@
 import * as sync from './sync'
-import * as api from './api'
+import * as store from './store'
 
 let debug = false
 let permissionList = []
@@ -41,7 +41,7 @@ export const init = (parameters) => {
   debug = parameters.debug
 
   // Return if storage api is unavailable
-  if (!api.isAvailable()) {
+  if (!store.isAvailable()) {
     try {
       return window.parent.postMessage({'cross-storage': 'unavailable'}, '*')
     } catch (e) {
@@ -77,7 +77,7 @@ export const init = (parameters) => {
  * The current implementation unfortunately mutates the wsClient variable.
  */
 const initWs = (parameters) => {
-  if (wsClient && wsClient.readyState === 1) {
+  if (wsClient && wsClient.readyState === wsClient.OPEN) {
     return
   }
   sync.initWSClient(parameters.syncserver, parameters.syncroom).then((ws) => {
@@ -180,7 +180,7 @@ const listener = (message) => {
   } else if (!isPermitted(origin, request.method)) {
     response.error = `Invalid ${request.method} permissions for ${origin}`
   } else {
-    response = api.prepareResponse(origin, request, clientId)
+    response = store.prepareResponse(origin, request, clientId)
     // Also send the changes to other devices
     if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
       request.updated = response.result
