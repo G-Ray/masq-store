@@ -23,7 +23,7 @@ const log = (...text) => {
  *    The data store is then initialized to accept requests from any of
  *    the matching origins, allowing access to the associated lists of methods.
  *    Methods may include any of: get, set, del, clear, getAll and setAll. A 'ready'
- *    message is sent to the parent window once complete.
+ *    message is sent to the parent window once initialized.
  *  - debug flag
  * @example
  * // Subdomain can get, but only root domain can set and del
@@ -85,7 +85,7 @@ const initWs = (parameters) => {
 
     // Check if we need to sync the local store
     log(`Checking for updates on other peers`)
-    sync.checkUpdates(wsClient, clientId)
+    sync.check(wsClient, clientId)
 
     wsClient.onmessage = (event) => {
       try {
@@ -184,7 +184,7 @@ const listener = (message) => {
     // Also send the changes to other devices
     if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
       request.updated = response.result
-      sync.push(wsClient, 'update', origin, request)
+      sync.push(wsClient, origin, request)
     }
   }
 

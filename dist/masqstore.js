@@ -42,7 +42,7 @@ var log = function log() {
  *    The data store is then initialized to accept requests from any of
  *    the matching origins, allowing access to the associated lists of methods.
  *    Methods may include any of: get, set, del, clear, getAll and setAll. A 'ready'
- *    message is sent to the parent window once complete.
+ *    message is sent to the parent window once initialized.
  *  - debug flag
  * @example
  * // Subdomain can get, but only root domain can set and del
@@ -104,7 +104,7 @@ var initWs = function initWs(parameters) {
 
     // Check if we need to sync the local store
     log('Checking for updates on other peers');
-    sync.checkUpdates(wsClient, clientId);
+    sync.check(wsClient, clientId);
 
     wsClient.onmessage = function (event) {
       try {
@@ -206,7 +206,7 @@ var listener = function listener(message) {
     // Also send the changes to other devices
     if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
       request.updated = response.result;
-      sync.push(wsClient, 'update', origin, request);
+      sync.push(wsClient, origin, request);
     }
   }
 
@@ -582,7 +582,7 @@ var now = exports.now = function now() {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.checkUpdates = exports.handleMessage = exports.push = undefined;
+exports.check = exports.push = exports.handleMessage = undefined;
 exports.initWSClient = initWSClient;
 
 var _store = require('./store');
@@ -621,21 +621,40 @@ function initWSClient(server, room) {
 }
 
 /**
- * Push updated data limited to the scope of the origin.
+ * Handle incoming messages received by the WebSocket client.
  *
  * @param   {object} ws The WebSocket client
- * @param   {string} type The type of the request
- * @param   {string} origin The origin of the request
- * @param   {object} request The request object
+ * @param   {object} msg The message recived by the WebSocket
+ * @param   {string} client The local client ID
  */
 // TODO: find a better supported URL composer
 // import * as url from 'url'
-var push = exports.push = function push(ws, type, origin, request) {
+var handleMessage = exports.handleMessage = function handleMessage(ws, msg, client) {
+  switch (msg.type) {
+    case 'sync':
+      updateHandler(msg, client);
+      break;
+    case 'check':
+      checkHandler(msg, ws, client);
+      break;
+    default:
+      break;
+  }
+};
+
+/**
+ * Push updated data limited to the scope of the origin.
+ *
+ * @param   {object} ws The WebSocket client
+ * @param   {string} origin The origin of the request
+ * @param   {object} request The request object
+ */
+var push = exports.push = function push(ws, origin, request) {
   if (!ws || origin.length === 0 || Object.keys(request.params).length === 0) {
     return;
   }
   var req = {
-    type: type,
+    type: 'sync',
     origin: origin,
     request: request
   };
@@ -644,26 +663,20 @@ var push = exports.push = function push(ws, type, origin, request) {
   }
 };
 
-var handleMessage = exports.handleMessage = function handleMessage(ws, msg, client) {
-  switch (msg.type) {
-    case 'update':
-      handleUpdates(msg, client);
-      break;
-    case 'check':
-      exportBackup(msg, ws);
-      break;
-    default:
-      break;
-  }
-};
-
-var handleUpdates = function handleUpdates(msg, client) {
-  console.log('Incoming update');
+/**
+ * Handle incoming data updates and propagate the changes to the client app.
+ *
+ * @param   {object} msg The contents of the message recived by the WebSocket
+ * @param   {string} client The local client ID
+ */
+var updateHandler = function updateHandler(msg, client) {
   var meta = store.getMeta(msg.origin);
   // no need to update local store if we have updated already to this version
-  if (meta.updated >= msg.request.updated) {
+  if (inTheFuture(msg.request.updated) || meta.updated >= msg.request.updated) {
     return;
   }
+  console.log('Syncing data');
+
   // Prepare response for the client app
   var response = store.prepareResponse(msg.origin, msg.request, client);
 
@@ -676,14 +689,26 @@ var handleUpdates = function handleUpdates(msg, client) {
   window.parent.postMessage(response, targetOrigin);
 };
 
-var exportBackup = function exportBackup(msg, ws) {
+/**
+ * Broadcast an update if we have fresh data that other devices do not.
+ *
+ * @param   {object} msg The contents of the message recived by the WebSocket
+ * @param   {object} ws The WebSocket client
+ */
+var checkHandler = function checkHandler(msg, ws) {
+  var client = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+
   // Check if we have local data that was changed after the specified data
-  if (msg.lastModified) {
+  // but ignore request if the received timestamp comes from the future
+  if (msg.updated && !inTheFuture(msg.updated)) {
     var meta = store.getMeta(msg.origin);
-    if (meta.updated > msg.lastModified) {
+    if (msg.updated > meta.updated) {
+      // Remote device has fresh data, we need to check and get it
+      check(ws, client);
+    } else {
       // We have fresh data and we need to send it.
       var resp = {
-        type: 'update',
+        type: 'sync',
         client: msg.client,
         origin: msg.origin,
         request: {
@@ -697,7 +722,13 @@ var exportBackup = function exportBackup(msg, ws) {
   }
 };
 
-var checkUpdates = exports.checkUpdates = function checkUpdates(ws) {
+/**
+ * Check if the other devices have an update for us.
+ *
+ * @param   {object} ws The WebSocket client
+ * @param   {string} client The local client ID
+ */
+var check = exports.check = function check(ws) {
   var client = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
 
   if (!ws) {
@@ -710,10 +741,22 @@ var checkUpdates = exports.checkUpdates = function checkUpdates(ws) {
       type: 'check',
       client: client,
       origin: appList[i].split('_meta_')[1],
-      lastModified: meta.updated
+      updated: meta.updated
     };
     ws.send(JSON.stringify(req));
   }
+};
+
+/**
+ * Check if a timestamp is in the future w.r.t. current local time.
+ *
+ * @param   {int} ts The timestamp to check
+ * @return  {bool} Whether the timestamp is in the future or not
+ */
+var inTheFuture = function inTheFuture() {
+  var ts = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
+
+  return ts > store.now();
 };
 },{"./store":2}]},{},[1])(1)
 });
