@@ -5,7 +5,7 @@ let debug = false
 let permissionList = []
 let wsClient
 let clientId = ''
-const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta']
+const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user']
 const wsTimeout = 3000 // Waiting (3s) for another attempt to reconnect to the WebSocket server
 
 const log = (...text) => {
@@ -41,7 +41,7 @@ export const init = (parameters) => {
   debug = parameters.debug
 
   // Return if storage api is unavailable
-  if (!store.isAvailable()) {
+  if (!store.available()) {
     try {
       return window.parent.postMessage({'cross-storage': 'unavailable'}, '*')
     } catch (e) {
@@ -151,6 +151,7 @@ const listener = (message) => {
     return
   }
 
+  console.log('Request', request)
   if (request.client) {
     clientId = request.client
   }
@@ -160,6 +161,7 @@ const listener = (message) => {
 
   // Handle polling for a ready message
   if (request['cross-storage'] === 'poll') {
+    console.log('Polling...')
     window.parent.postMessage({'cross-storage': 'ready'}, message.origin)
     return
   }
@@ -177,8 +179,9 @@ const listener = (message) => {
 
   if (!request.method) {
     return
-  } else if (!isPermitted(origin, request.method)) {
-    response.error = `Invalid ${request.method} permissions for ${origin}`
+  // // Disable permission check for now since we do not share data between origins
+  // } else if (!isPermitted(origin, request.method)) {
+  //   response.error = `Invalid ${request.method} permissions for ${origin}`
   } else {
     response = store.prepareResponse(origin, request, clientId)
     // Also send the changes to other devices
@@ -245,21 +248,19 @@ const onlineStatus = (online, parameters) => {
 }
 
 /**
- * Returns whether or not an object is empty.
+ * Exports all the data in the store
  *
- * @param   {object} obj The object to check
- * @returns {bool} Whether or not the object is empoty
+ * @return {object} The contents of the store as key:value pairs
  */
-// const isEmpty = (obj) => {
-//   return Object.keys(obj).length === 0
-// }
+export const exportJSON = () => {
+  return store.exportJSON()
+}
 
 /**
- * Returns whether or not a variable is an object.
+ * Imports all the data from a different store
  *
- * @param   {*} variable The variable to check
- * @returns {bool} Whether or not the variable is an object
+ * @param {object} data The contents of the store as a JSON object
  */
-// const isObject = (variable) => {
-//   return typeof (variable) === 'object'
-// }
+export const importJSON = (data) => {
+  store.importJSON(data)
+}
