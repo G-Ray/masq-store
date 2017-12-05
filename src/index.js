@@ -1,12 +1,12 @@
 import * as sync from './sync'
 import * as store from './store'
+import * as acl from './permissions'
 
-let debug = false
-let permissionList = []
 let parameters
 let wsClient
 let clientId = ''
 const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user']
+const defaultPermissions = availableMethods
 const wsTimeout = 3000 // Waiting (3s) for another attempt to reconnect to the WebSocket server
 
 const log = (...text) => {
@@ -186,9 +186,9 @@ const listener = (message) => {
 
   if (!request.method) {
     return
-  // // Disable permission check for now since we do not share data between origins
-  // } else if (!isPermitted(origin, request.method)) {
-  //   response.error = `Invalid ${request.method} permissions for ${origin}`
+  // Disable permission check for now since we do not share data between origins
+  } else if (!isPermitted(origin, request.method)) {
+    response.error = `Invalid ${request.method} permissions for ${origin}`
   } else {
     response = store.prepareResponse(origin, request, clientId)
     // Also send the changes to other devices
@@ -213,22 +213,16 @@ const listener = (message) => {
  * @returns {bool}   Whether or not the request is permitted
  */
 const isPermitted = (origin, method) => {
-  let i, entry, match
-
   if (availableMethods.indexOf(method) < 0) {
     return false
   }
 
-  for (i = 0; i < permissionList.length; i++) {
-    entry = permissionList[i]
-    if (!(entry.origin instanceof RegExp) || !(entry.allow instanceof Array)) {
-      continue
-    }
+  if (isWhitelisted(origin)) {
+    return true
+  }
 
-    match = entry.origin.test(origin)
-    if (match && entry.allow.indexOf(method) >= 0) {
-      return true
-    }
+  if (acl.getPermissions(origin).indexOf(method) >= 0) {
+    return true
   }
 
   return false
@@ -256,9 +250,14 @@ const onlineStatus = (online, parameters) => {
  * Register a given app based on its origin
  *
  * @param   {string} origin The origin of the app
+ * @param   {string} permissions The list of permisssions for the app
  */
-export const registerApp = (origin) => {
-  store.registerApp(origin)
+export const registerApp = (origin, permissions = []) => {
+  // Set default list of permissions to everything for now
+  if (permissions.length === 0) {
+    permissions = defaultPermissions
+  }
+  store.registerApp(origin, permissions)
 }
 
 /**
@@ -290,4 +289,29 @@ export const exportJSON = () => {
  */
 export const importJSON = (data) => {
   store.importJSON(data)
+}
+
+/**
+ * Check if an app origin is whitelisted
+ *
+ * @param {string} origin The origin of the app
+ * @return {bool} True if whitelisted
+ */
+export const isWhitelisted = (origin) => {
+  const permissionList = [
+    /^https?:\/\/localhost+(:[0-9]*)?/,
+    /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/,
+    /^https?:\/\/192\.168\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/,
+    /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/
+  ]
+  for (let i = 0; i < permissionList.length; i++) {
+    const entry = permissionList[i]
+    if (!(entry instanceof RegExp)) {
+      continue
+    }
+    if (entry.test(origin)) {
+      return true
+    }
+  }
+  return false
 }

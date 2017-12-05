@@ -4,7 +4,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.importJSON = exports.exportJSON = exports.appList = exports.unregisterApp = exports.registerApp = exports.init = undefined;
+exports.isWhitelisted = exports.importJSON = exports.exportJSON = exports.appList = exports.unregisterApp = exports.registerApp = exports.init = undefined;
 
 var _sync = require('./sync');
 
@@ -14,14 +14,17 @@ var _store = require('./store');
 
 var store = _interopRequireWildcard(_store);
 
+var _permissions = require('./permissions');
+
+var acl = _interopRequireWildcard(_permissions);
+
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-var debug = false;
-var permissionList = [];
 var parameters = void 0;
 var wsClient = void 0;
 var clientId = '';
 var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user'];
+var defaultPermissions = availableMethods;
 var wsTimeout = 3000; // Waiting (3s) for another attempt to reconnect to the WebSocket server
 
 var log = function log() {
@@ -208,9 +211,9 @@ var listener = function listener(message) {
 
   if (!request.method) {
     return;
-    // // Disable permission check for now since we do not share data between origins
-    // } else if (!isPermitted(origin, request.method)) {
-    //   response.error = `Invalid ${request.method} permissions for ${origin}`
+    // Disable permission check for now since we do not share data between origins
+  } else if (!isPermitted(origin, request.method)) {
+    response.error = 'Invalid ' + request.method + ' permissions for ' + origin;
   } else {
     response = store.prepareResponse(origin, request, clientId);
     // Also send the changes to other devices
@@ -235,24 +238,16 @@ var listener = function listener(message) {
  * @returns {bool}   Whether or not the request is permitted
  */
 var isPermitted = function isPermitted(origin, method) {
-  var i = void 0,
-      entry = void 0,
-      match = void 0;
-
   if (availableMethods.indexOf(method) < 0) {
     return false;
   }
 
-  for (i = 0; i < permissionList.length; i++) {
-    entry = permissionList[i];
-    if (!(entry.origin instanceof RegExp) || !(entry.allow instanceof Array)) {
-      continue;
-    }
+  if (isWhitelisted(origin)) {
+    return true;
+  }
 
-    match = entry.origin.test(origin);
-    if (match && entry.allow.indexOf(method) >= 0) {
-      return true;
-    }
+  if (acl.getPermissions(origin).indexOf(method) >= 0) {
+    return true;
   }
 
   return false;
@@ -280,9 +275,16 @@ var onlineStatus = function onlineStatus(online, parameters) {
  * Register a given app based on its origin
  *
  * @param   {string} origin The origin of the app
+ * @param   {string} permissions The list of permisssions for the app
  */
 var registerApp = exports.registerApp = function registerApp(origin) {
-  store.registerApp(origin);
+  var permissions = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
+  // Set default list of permissions to everything for now
+  if (permissions.length === 0) {
+    permissions = defaultPermissions;
+  }
+  store.registerApp(origin, permissions);
 };
 
 /**
@@ -315,13 +317,71 @@ var exportJSON = exports.exportJSON = function exportJSON() {
 var importJSON = exports.importJSON = function importJSON(data) {
   store.importJSON(data);
 };
-},{"./store":2,"./sync":3}],2:[function(require,module,exports){
+
+/**
+ * Check if an app origin is whitelisted
+ *
+ * @param {string} origin The origin of the app
+ * @return {bool} True if whitelisted
+ */
+var isWhitelisted = exports.isWhitelisted = function isWhitelisted(origin) {
+  var permissionList = [/^https?:\/\/localhost+(:[0-9]*)?/, /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, /^https?:\/\/192\.168\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/];
+  for (var i = 0; i < permissionList.length; i++) {
+    var entry = permissionList[i];
+    if (!(entry instanceof RegExp)) {
+      continue;
+    }
+    if (entry.test(origin)) {
+      return true;
+    }
+  }
+  return false;
+};
+},{"./permissions":2,"./store":3,"./sync":4}],2:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.unregisterApp = exports.registerApp = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clear = exports.del = exports.get = exports.set = exports.user = exports.prepareResponse = exports.META = exports.USER = undefined;
+exports.setPermissions = exports.getPermissions = undefined;
+
+var _store = require('./store');
+
+var store = _interopRequireWildcard(_store);
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
+/**
+ * Gets the permission list for a given origin.
+ *
+ * @param   {string} origin The origin of the app
+ * @return  {array} List of permissions
+ */
+var getPermissions = exports.getPermissions = function getPermissions(origin) {
+  var meta = store.getMeta(origin);
+  return meta.permissions || [];
+};
+
+/**
+ * Sets the permission list for a given origin.
+ *
+ * @param   {string} origin The origin of the app
+ * @param   {array} list List of permissions
+ */
+var setPermissions = exports.setPermissions = function setPermissions(origin) {
+  var list = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
+  var meta = store.getMeta(origin);
+  meta.permissions = list;
+  store.setMeta(origin, meta);
+};
+},{"./store":3}],3:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.unregisterApp = exports.registerApp = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clear = exports.del = exports.get = exports.set = exports.user = exports.prepareResponse = exports.META = exports.USER = undefined;
 
 var _util = require('./util');
 
@@ -515,6 +575,7 @@ var getMeta = exports.getMeta = function getMeta(origin) {
   var item = origin ? META + '_' + origin : META;
   return getAll(item);
 };
+
 /**
  * Sets the metadata for a given origin.
  *
@@ -526,18 +587,55 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
   // Use the timestamp as revision number for now
   var updated = data.updated ? data.updated : util.now();
 
-  // Update global the store meta
+  // Update the global store meta
   var meta = getAll(META);
   meta.updated = updated;
   store.setItem(META, JSON.stringify(meta));
 
-  // Update the origin meta
+  // Update the meta data for the given origin
   if (!data.updated) {
     data.updated = updated;
   }
   store.setItem(META + '_' + origin, JSON.stringify(data));
 
   return updated;
+};
+
+/**
+ * Registers the data store for an app URL.
+ *
+ * @param   {string} url The URL of the app
+ * @param   {array} perms The list of permissions for the app
+ */
+var registerApp = exports.registerApp = function registerApp(url) {
+  var perms = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
+  if (!url || url.length === 0) {
+    return;
+  }
+  var origin = util.getOrigin(url);
+  if (!exists(origin)) {
+    store.setItem(origin, '{}');
+
+    var meta = {
+      permissions: perms,
+      updated: 0
+    };
+    store.setItem(META + '_' + origin, JSON.stringify(meta));
+  }
+};
+
+/**
+ * Unregisters the data store for an app (origin).
+ *
+ * @param   {string} origin The origin of the app
+ */
+var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
+  if (!origin) {
+    return;
+  }
+  clear(origin);
+  clear(META + '_' + origin);
 };
 
 /**
@@ -569,35 +667,6 @@ var metaList = exports.metaList = function metaList() {
     }
   }
   return list;
-};
-
-/**
- * Registers the data store for an app URL.
- *
- * @param   {string} url The URL of the app
- */
-var registerApp = exports.registerApp = function registerApp(url) {
-  if (!url || url.length === 0) {
-    return;
-  }
-  var origin = util.getOrigin(url);
-  if (!exists(origin)) {
-    store.setItem(origin, '{}');
-    store.setItem(META + '_' + origin, '{}');
-  }
-};
-
-/**
- * Unregisters the data store for an app (origin).
- *
- * @param   {string} origin The origin of the app
- */
-var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
-  if (!origin) {
-    return;
-  }
-  clear(origin);
-  clear(META + '_' + origin);
 };
 
 /**
@@ -661,7 +730,7 @@ var available = exports.available = function available() {
   }
   return status;
 };
-},{"./util":4}],3:[function(require,module,exports){
+},{"./util":5}],4:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -857,7 +926,7 @@ var inTheFuture = function inTheFuture() {
 
   return ts > util.now();
 };
-},{"./store":2,"./util":4}],4:[function(require,module,exports){
+},{"./store":3,"./util":5}],5:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {

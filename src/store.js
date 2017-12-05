@@ -184,6 +184,7 @@ export const getMeta = (origin) => {
   const item = (origin) ? `${META}_${origin}` : META
   return getAll(item)
 }
+
 /**
  * Sets the metadata for a given origin.
  *
@@ -195,18 +196,53 @@ export const setMeta = (origin, data) => {
   // Use the timestamp as revision number for now
   const updated = (data.updated) ? data.updated : util.now()
 
-  // Update global the store meta
+  // Update the global store meta
   let meta = getAll(META)
   meta.updated = updated
   store.setItem(META, JSON.stringify(meta))
 
-  // Update the origin meta
+  // Update the meta data for the given origin
   if (!data.updated) {
     data.updated = updated
   }
   store.setItem(`${META}_${origin}`, JSON.stringify(data))
 
   return updated
+}
+
+/**
+ * Registers the data store for an app URL.
+ *
+ * @param   {string} url The URL of the app
+ * @param   {array} perms The list of permissions for the app
+ */
+export const registerApp = (url, perms = []) => {
+  if (!url || url.length === 0) {
+    return
+  }
+  const origin = util.getOrigin(url)
+  if (!exists(origin)) {
+    store.setItem(origin, '{}')
+
+    let meta = {
+      permissions: perms,
+      updated: 0
+    }
+    store.setItem(`${META}_${origin}`, JSON.stringify(meta))
+  }
+}
+
+/**
+ * Unregisters the data store for an app (origin).
+ *
+ * @param   {string} origin The origin of the app
+ */
+export const unregisterApp = (origin) => {
+  if (!origin) {
+    return
+  }
+  clear(origin)
+  clear(`${META}_${origin}`)
 }
 
 /**
@@ -238,35 +274,6 @@ export const metaList = () => {
     }
   }
   return list
-}
-
-/**
- * Registers the data store for an app URL.
- *
- * @param   {string} url The URL of the app
- */
-export const registerApp = (url) => {
-  if (!url || url.length === 0) {
-    return
-  }
-  const origin = util.getOrigin(url)
-  if (!exists(origin)) {
-    store.setItem(origin, '{}')
-    store.setItem(`${META}_${origin}`, '{}')
-  }
-}
-
-/**
- * Unregisters the data store for an app (origin).
- *
- * @param   {string} origin The origin of the app
- */
-export const unregisterApp = (origin) => {
-  if (!origin) {
-    return
-  }
-  clear(origin)
-  clear(`${META}_${origin}`)
 }
 
 /**
