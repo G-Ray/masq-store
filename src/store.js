@@ -1,5 +1,11 @@
+import * as util from './util'
+import { isEmpty } from './util'
+
 // Default storage API
 const store = window.localStorage
+
+export const USER = '_user'
+export const META = '_meta'
 
 /**
  * Returns a response object to the application requesting an action.
@@ -12,32 +18,45 @@ const store = window.localStorage
 export const prepareResponse = (origin, request, client) => {
   let error, result
   const meta = { updated: request.updated }
-  try {
-    // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
-    switch (request.method) {
-      case 'get':
-        result = get(origin, request.params)
-        break
-      case 'set':
-        result = set(origin, request.params, meta)
-        break
-      case 'del':
-        result = del(origin, request.params, meta)
-        break
-      case 'clear':
-        result = clear(origin)
-        break
-      case 'getAll':
-        result = getAll(origin)
-        break
-      case 'setAll':
-        result = setAll(origin, request.params, meta)
-        break
-      default:
-        break
+  if (exists(origin)) {
+    try {
+      // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
+      switch (request.method) {
+        case 'user':
+          result = user()
+          break
+        case 'get':
+          result = get(origin, request.params)
+          break
+        case 'set':
+          set(origin, request.params)
+          // update the meta data and return the timestamp
+          result = setMeta(origin, meta)
+          break
+        case 'del':
+          del(origin, request.params)
+          // update the meta data and return the timestamp
+          result = setMeta(origin, meta)
+          break
+        case 'clear':
+          result = clear(origin)
+          break
+        case 'getAll':
+          result = getAll(origin)
+          break
+        case 'setAll':
+          setAll(origin, request.params)
+          // update the meta data and return the timestamp
+          result = setMeta(origin, meta)
+          break
+        default:
+          break
+      }
+    } catch (err) {
+      error = err.message
     }
-  } catch (err) {
-    error = err.message
+  } else {
+    error = 'UNREGISTERED'
   }
 
   const ret = {
@@ -47,6 +66,14 @@ export const prepareResponse = (origin, request, client) => {
   }
 
   return ret
+}
+
+/**
+ * Returns the public profile of the user, including the picture and the name.
+ * @returns {object} Public profile data
+ */
+export const user = () => {
+  return getAll(USER)
 }
 
 /**
@@ -62,8 +89,6 @@ export const set = (origin, params, meta) => {
   data[params.key] = params.value
   // persist data in the store
   store.setItem(origin, JSON.stringify(data))
-  // update the meta data and return the timestamp
-  return setMeta(origin, meta)
 }
 
 /**
@@ -108,8 +133,6 @@ export const del = (origin, params, meta) => {
   }
   // persist data in th
   store.setItem(origin, JSON.stringify(data))
-  // update the meta data and return the update timestamp
-  return setMeta(origin, meta)
 }
 
 /**
@@ -149,8 +172,6 @@ export const getAll = (origin) => {
 export const setAll = (origin, data, meta) => {
   // persist data in th
   store.setItem(origin, JSON.stringify(data))
-  // update the meta data and return the update timestamp
-  return setMeta(origin, meta)
 }
 
 /**
@@ -160,7 +181,7 @@ export const setAll = (origin, data, meta) => {
  * @return  {object} The metadata corresponding to the origin
  */
 export const getMeta = (origin) => {
-  const item = (origin) ? `_meta_${origin}` : '_meta'
+  const item = (origin) ? `${META}_${origin}` : META
   return getAll(item)
 }
 /**
@@ -172,18 +193,18 @@ export const getMeta = (origin) => {
  */
 export const setMeta = (origin, data) => {
   // Use the timestamp as revision number for now
-  const updated = (data.updated) ? data.updated : now()
+  const updated = (data.updated) ? data.updated : util.now()
 
   // Update global the store meta
-  let meta = getAll('_meta')
+  let meta = getAll(META)
   meta.updated = updated
-  store.setItem('_meta', JSON.stringify(meta))
+  store.setItem(META, JSON.stringify(meta))
 
   // Update the origin meta
   if (!data.updated) {
     data.updated = updated
   }
-  store.setItem(`_meta_${origin}`, JSON.stringify(data))
+  store.setItem(`${META}_${origin}`, JSON.stringify(data))
 
   return updated
 }
@@ -196,7 +217,7 @@ export const setMeta = (origin, data) => {
 export const appList = () => {
   let list = []
   for (let i = 0; i < store.length; i++) {
-    if (store.key(i).indexOf('_') !== 0) {
+    if (store.key(i).indexOf('http') === 0) {
       list.push(store.key(i))
     }
   }
@@ -212,11 +233,40 @@ export const metaList = () => {
   let list = []
   for (let i = 0; i < store.length; i++) {
     const item = store.key(i)
-    if (item.indexOf('_meta_') === 0) {
+    if (item.indexOf(META) === 0) {
       list.push(item)
     }
   }
   return list
+}
+
+/**
+ * Registers the data store for an app URL.
+ *
+ * @param   {string} url The URL of the app
+ */
+export const registerApp = (url) => {
+  if (!url || url.length === 0) {
+    return
+  }
+  const origin = util.getOrigin(url)
+  if (!exists(origin)) {
+    store.setItem(origin, '{}')
+    store.setItem(`${META}_${origin}`, '{}')
+  }
+}
+
+/**
+ * Unregisters the data store for an app (origin).
+ *
+ * @param   {string} origin The origin of the app
+ */
+export const unregisterApp = (origin) => {
+  if (!origin) {
+    return
+  }
+  clear(origin)
+  clear(`${META}_${origin}`)
 }
 
 /**
@@ -238,7 +288,7 @@ export const exportJSON = () => {
  * @param {object} data The contents of the store as a JSON object
  */
 export const importJSON = (data) => {
-  if (!data) {
+  if (!data || util.isEmpty(data)) {
     return
   }
 
@@ -250,31 +300,33 @@ export const importJSON = (data) => {
 }
 
 /**
- * Check
+ * Verify if a key exists in the store
  *
- * @return {bool} If storage API is available
+ * @param {string} item They key to check
  */
-export const isAvailable = () => {
-  let available = true
-  try {
-    if (!store) {
-      available = false
+export const exists = (item) => {
+  for (let i = 0; i < store.length; i++) {
+    if (store.key(i) === item) {
+      return true
     }
-  } catch (err) {
-    available = false
   }
-  return available
+  return false
 }
 
 /**
- * A cross-browser version of Date.now compatible with IE8 that avoids
- * modifying the Date object.
+ * Check if the storage API is available
  *
- * @return {int} The current timestamp in milliseconds
+ * @return {bool} Availability status
  */
-export const now = () => {
-  if (typeof Date.now === 'function') {
-    return Date.now()
+export const available = () => {
+  let status = true
+  try {
+    if (!store) {
+      status = false
+    }
+  } catch (err) {
+    status = false
+    console.log(err)
   }
-  return new Date().getTime()
+  return status
 }

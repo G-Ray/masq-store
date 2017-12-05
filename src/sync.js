@@ -1,5 +1,6 @@
 // TODO: find a better supported URL composer
 // import * as url from 'url'
+import * as util from './util'
 import * as store from './store'
 
 export function initWSClient (server, room) {
@@ -81,10 +82,15 @@ export const push = (ws, origin, request) => {
 const updateHandler = (msg, client) => {
   const meta = store.getMeta(msg.origin)
   // no need to update local store if we have updated already to this version
-  if (inTheFuture(msg.request.updated) || meta.updated >= msg.request.updated) {
+  if (inTheFuture(msg.request.updated)) {
     return
   }
-  console.log('Syncing data')
+
+  if (!meta || util.isEmpty(meta) || meta.updated >= msg.request.updated) {
+    return
+  }
+
+  console.log('Syncing data for', msg.origin)
 
   // Prepare response for the client app
   let response = store.prepareResponse(msg.origin, msg.request, client)
@@ -140,12 +146,17 @@ export const check = (ws, client = '') => {
     return
   }
   const appList = store.metaList()
+  if (appList.length === 0) {
+    return
+  }
+
+  console.log(`Checking for updates on other peers`)
   for (let i = 0; i < appList.length; i++) {
     const meta = store.getAll(appList[i])
     let req = {
       type: 'check',
       client: client,
-      origin: appList[i].split('_meta_')[1],
+      origin: appList[i].split(`${store.META}_`)[1],
       updated: meta.updated
     }
     ws.send(JSON.stringify(req))
@@ -159,5 +170,5 @@ export const check = (ws, client = '') => {
  * @return  {bool} Whether the timestamp is in the future or not
  */
 const inTheFuture = (ts = 0) => {
-  return ts > store.now()
+  return ts > util.now()
 }

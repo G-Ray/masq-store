@@ -4,31 +4,75 @@
 <title>Masq Data Store</title>
 <script type="text/javascript" src="dist/masqstore.js"></script>
 <script type="text/javascript" src="sw.js"></script>
-<script>
-  var allowAll = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta']
-  MasqStore.init({
-    permissions: [
-          {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: allowAll},
-          {origin: /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: allowAll},
-          {origin: /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: allowAll}
-    ],
-    syncserver: 'ws://10.100.50.17:8080/',
-    debug: false
-  })
-
-  // Install ServiceWorker to cache app files
-  // if ('serviceWorker' in navigator) {
-  //   navigator.serviceWorker.register('sw.js', {scope: '/'}).then((reg) => {
-  //     // registration worked
-  //     // check if we can update anything
-  //     // console.log('Registration succeeded. Scope is ' + reg.scope)
-  //     reg.update()
-  //   }).catch((error) => {
-  //     // registration failed
-  //     console.log('Registration failed with error:', error)
-  //   })
-  // }
-</script>
 </head>
+<body>
+  <div>
+    <h3>Register an app:</h3>
+    <input type="text" name="app" id="app">
+    <button id="add">Register</button>
+  </div>
+  <div>
+    <h3>Current apps</h3>
+    <ul id="list"></ul>
+  </div>
+</body>
+<script>
+    var allowAll = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta']
+    MasqStore.init({
+      permissions: [
+            {origin: /^https?:\/\/localhost+(:[0-9]*)?/, allow: allowAll},
+            {origin: /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: allowAll},
+            {origin: /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, allow: allowAll}
+      ],
+      syncserver: 'ws://10.100.50.17:8080/',
+      debug: false
+    })
+
+    var list = document.getElementById('list')
+    var appOrigin = document.getElementById('app')
+    var addButton = document.getElementById('add')
+
+    addButton.addEventListener('click', function (e) {
+      var app = appOrigin.value
+      if (!app || app.length === 0) {
+        return
+      }
+      MasqStore.registerApp(app)
+      listApps()
+    })
+
+    var listApps = function () {
+      var apps = MasqStore.appList()
+      list.innerHTML = ''
+      apps.forEach(function (app) {
+        var elem = document.createElement('li')
+        elem.innerHTML = '<a href="' + app + '" target="_blank">' + app + '</a> | '
+        var remBtn = document.createElement('a')
+        remBtn.href = '#'
+        remBtn.innerHTML = ' Remove'
+        remBtn.addEventListener('click', function (e) {
+          MasqStore.unregisterApp(app)
+          listApps()
+        })
+        elem.appendChild(remBtn)
+        list.appendChild(elem)
+      })
+    }
+
+    listApps()
+
+    // Install ServiceWorker to cache app files
+    // if ('serviceWorker' in navigator) {
+    //   navigator.serviceWorker.register('sw.js', {scope: '/'}).then((reg) => {
+    //     // registration worked
+    //     // check if we can update anything
+    //     // console.log('Registration succeeded. Scope is ' + reg.scope)
+    //     reg.update()
+    //   }).catch((error) => {
+    //     // registration failed
+    //     console.log('Registration failed with error:', error)
+    //   })
+    // }
+  </script>
 </html>
 <!-- syncserver: 'ws://10.100.50.17:8080/' -->

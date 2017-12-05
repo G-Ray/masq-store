@@ -4,7 +4,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.init = undefined;
+exports.importJSON = exports.exportJSON = exports.appList = exports.unregisterApp = exports.registerApp = exports.init = undefined;
 
 var _sync = require('./sync');
 
@@ -18,9 +18,10 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 var debug = false;
 var permissionList = [];
+var parameters = void 0;
 var wsClient = void 0;
 var clientId = '';
-var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'getMeta'];
+var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user'];
 var wsTimeout = 3000; // Waiting (3s) for another attempt to reconnect to the WebSocket server
 
 var log = function log() {
@@ -28,8 +29,8 @@ var log = function log() {
     text[_key] = arguments[_key];
   }
 
-  if (debug) {
-    console.log(text);
+  if (parameters.debug) {
+    console.log('[Masq Store]', text);
   }
 };
 
@@ -54,13 +55,13 @@ var log = function log() {
  *   syncserver: 'wss://....'
  * });
  *
- * @param {array} parameters An array of objects used for configuration
+ * @param {array} options An array of objects used for configuration
  */
-var init = exports.init = function init(parameters) {
-  debug = parameters.debug;
+var init = exports.init = function init(options) {
+  parameters = options || {};
 
   // Return if storage api is unavailable
-  if (!store.isAvailable()) {
+  if (!store.available()) {
     try {
       return window.parent.postMessage({ 'cross-storage': 'unavailable' }, '*');
     } catch (e) {
@@ -68,25 +69,17 @@ var init = exports.init = function init(parameters) {
     }
   }
 
-  permissionList = parameters.permissions || [];
-
-  // Listen to online/offline events in order to trigger sync
-  if (navigator.onLine !== undefined) {
-    window.addEventListener('online', function () {
-      onlineStatus(true, parameters);
-    });
-    window.addEventListener('offline', function () {
-      onlineStatus(false, parameters);
-    });
-
-    onlineStatus(navigator.onLine, parameters);
+  // Initialize the window event listener for postMessage. This allows us to
+  // communicate with the apps running in the parent window of the <iframe>.
+  if (window.addEventListener) {
+    window.addEventListener('message', listener, false);
   } else {
-    // Cannot detect connection status, let's try to connect anyway the first time
-    initWs(parameters);
+    window.attachEvent('onmessage', listener);
   }
+  // All set, let the app know we're listening
+  window.parent.postMessage({ 'cross-storage': 'listening' }, '*');
 
-  // All set, let the client app know we're ready
-  initListener();
+  log('Listening to clients...');
 };
 
 /**
@@ -95,7 +88,7 @@ var init = exports.init = function init(parameters) {
  *
  * The current implementation unfortunately mutates the wsClient variable.
  */
-var initWs = function initWs(parameters) {
+var initWs = function initWs() {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
     return;
   }
@@ -103,7 +96,6 @@ var initWs = function initWs(parameters) {
     wsClient = ws;
 
     // Check if we need to sync the local store
-    log('Checking for updates on other peers');
     sync.check(wsClient, clientId);
 
     wsClient.onmessage = function (event) {
@@ -133,20 +125,32 @@ var initWs = function initWs(parameters) {
 };
 
 /**
- * Initialize the window event listener for postMessage. This allows us to
- * communicate with the apps running in the parent window of the <iframe>.
+ * Initialize the data store for the app origin.
  */
-var initListener = function initListener() {
-  // Init listener
-  if (window.addEventListener) {
-    window.addEventListener('message', listener, false);
-  } else {
-    window.attachEvent('onmessage', listener);
-  }
-  // All set, let the app know we're ready
-  window.parent.postMessage({ 'cross-storage': 'ready' }, '*');
+var initApp = function initApp(origin, params) {
+  console.log('Attempting to initialize app: ' + origin);
+  parameters = params || {};
+  // permissionList = params.permissions || []
 
-  log('Listening to clients...');
+  // Force register the app for now (until we have proper UI)
+  store.registerApp(origin);
+
+  // Listen to online/offline events in order to trigger sync
+  if (navigator.onLine !== undefined) {
+    window.addEventListener('online', function () {
+      onlineStatus(true, parameters);
+    });
+    window.addEventListener('offline', function () {
+      onlineStatus(false, parameters);
+    });
+
+    onlineStatus(navigator.onLine, parameters);
+  } else {
+    // Cannot detect connection status, try to force connect the first time
+    initWs(parameters);
+  }
+
+  window.parent.postMessage({ 'cross-storage': 'ready' }, origin);
 };
 
 /**
@@ -186,6 +190,11 @@ var listener = function listener(message) {
     return;
   }
 
+  if (request['cross-storage'] === 'init') {
+    initApp(origin, request);
+    return;
+  }
+
   // Check whether request.method is a string
   if (!request || typeof request.method !== 'string') {
     return;
@@ -199,8 +208,9 @@ var listener = function listener(message) {
 
   if (!request.method) {
     return;
-  } else if (!isPermitted(origin, request.method)) {
-    response.error = 'Invalid ' + request.method + ' permissions for ' + origin;
+    // // Disable permission check for now since we do not share data between origins
+    // } else if (!isPermitted(origin, request.method)) {
+    //   response.error = `Invalid ${request.method} permissions for ${origin}`
   } else {
     response = store.prepareResponse(origin, request, clientId);
     // Also send the changes to other devices
@@ -209,8 +219,6 @@ var listener = function listener(message) {
       sync.push(wsClient, origin, request);
     }
   }
-
-  log('Change detected: ' + response);
 
   // postMessage requires that the target origin be set to "*" for "file://"
   targetOrigin = origin === 'file://' ? '*' : origin;
@@ -269,32 +277,63 @@ var onlineStatus = function onlineStatus(online, parameters) {
 };
 
 /**
- * Returns whether or not an object is empty.
+ * Register a given app based on its origin
  *
- * @param   {object} obj The object to check
- * @returns {bool} Whether or not the object is empoty
+ * @param   {string} origin The origin of the app
  */
-// const isEmpty = (obj) => {
-//   return Object.keys(obj).length === 0
-// }
+var registerApp = exports.registerApp = function registerApp(origin) {
+  store.registerApp(origin);
+};
 
 /**
- * Returns whether or not a variable is an object.
+ * Unregister a given app based on its origin
  *
- * @param   {*} variable The variable to check
- * @returns {bool} Whether or not the variable is an object
+ * @param   {string} origin The origin of the app
  */
-// const isObject = (variable) => {
-//   return typeof (variable) === 'object'
-// }
+var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
+  store.unregisterApp(origin);
+};
+
+var appList = exports.appList = function appList() {
+  return store.appList();
+};
+
+/**
+ * Exports all the data in the store
+ *
+ * @return {object} The contents of the store as key:value pairs
+ */
+var exportJSON = exports.exportJSON = function exportJSON() {
+  return store.exportJSON();
+};
+
+/**
+ * Imports all the data from a different store
+ *
+ * @param {object} data The contents of the store as a JSON object
+ */
+var importJSON = exports.importJSON = function importJSON(data) {
+  store.importJSON(data);
+};
 },{"./store":2,"./sync":3}],2:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.unregisterApp = exports.registerApp = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clear = exports.del = exports.get = exports.set = exports.user = exports.prepareResponse = exports.META = exports.USER = undefined;
+
+var _util = require('./util');
+
+var util = _interopRequireWildcard(_util);
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
+
 // Default storage API
 var store = window.localStorage;
+
+var USER = exports.USER = '_user';
+var META = exports.META = '_meta';
 
 /**
  * Returns a response object to the application requesting an action.
@@ -308,32 +347,45 @@ var prepareResponse = exports.prepareResponse = function prepareResponse(origin,
   var error = void 0,
       result = void 0;
   var meta = { updated: request.updated };
-  try {
-    // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
-    switch (request.method) {
-      case 'get':
-        result = get(origin, request.params);
-        break;
-      case 'set':
-        result = set(origin, request.params, meta);
-        break;
-      case 'del':
-        result = del(origin, request.params, meta);
-        break;
-      case 'clear':
-        result = clear(origin);
-        break;
-      case 'getAll':
-        result = getAll(origin);
-        break;
-      case 'setAll':
-        result = setAll(origin, request.params, meta);
-        break;
-      default:
-        break;
+  if (exists(origin)) {
+    try {
+      // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
+      switch (request.method) {
+        case 'user':
+          result = user();
+          break;
+        case 'get':
+          result = get(origin, request.params);
+          break;
+        case 'set':
+          set(origin, request.params);
+          // update the meta data and return the timestamp
+          result = setMeta(origin, meta);
+          break;
+        case 'del':
+          del(origin, request.params);
+          // update the meta data and return the timestamp
+          result = setMeta(origin, meta);
+          break;
+        case 'clear':
+          result = clear(origin);
+          break;
+        case 'getAll':
+          result = getAll(origin);
+          break;
+        case 'setAll':
+          setAll(origin, request.params);
+          // update the meta data and return the timestamp
+          result = setMeta(origin, meta);
+          break;
+        default:
+          break;
+      }
+    } catch (err) {
+      error = err.message;
     }
-  } catch (err) {
-    error = err.message;
+  } else {
+    error = 'UNREGISTERED';
   }
 
   var ret = {
@@ -343,6 +395,14 @@ var prepareResponse = exports.prepareResponse = function prepareResponse(origin,
   };
 
   return ret;
+};
+
+/**
+ * Returns the public profile of the user, including the picture and the name.
+ * @returns {object} Public profile data
+ */
+var user = exports.user = function user() {
+  return getAll(USER);
 };
 
 /**
@@ -358,8 +418,6 @@ var set = exports.set = function set(origin, params, meta) {
   data[params.key] = params.value;
   // persist data in the store
   store.setItem(origin, JSON.stringify(data));
-  // update the meta data and return the timestamp
-  return setMeta(origin, meta);
 };
 
 /**
@@ -406,8 +464,6 @@ var del = exports.del = function del(origin, params, meta) {
   }
   // persist data in th
   store.setItem(origin, JSON.stringify(data));
-  // update the meta data and return the update timestamp
-  return setMeta(origin, meta);
 };
 
 /**
@@ -447,8 +503,6 @@ var getAll = exports.getAll = function getAll(origin) {
 var setAll = exports.setAll = function setAll(origin, data, meta) {
   // persist data in th
   store.setItem(origin, JSON.stringify(data));
-  // update the meta data and return the update timestamp
-  return setMeta(origin, meta);
 };
 
 /**
@@ -458,7 +512,7 @@ var setAll = exports.setAll = function setAll(origin, data, meta) {
  * @return  {object} The metadata corresponding to the origin
  */
 var getMeta = exports.getMeta = function getMeta(origin) {
-  var item = origin ? '_meta_' + origin : '_meta';
+  var item = origin ? META + '_' + origin : META;
   return getAll(item);
 };
 /**
@@ -470,18 +524,18 @@ var getMeta = exports.getMeta = function getMeta(origin) {
  */
 var setMeta = exports.setMeta = function setMeta(origin, data) {
   // Use the timestamp as revision number for now
-  var updated = data.updated ? data.updated : now();
+  var updated = data.updated ? data.updated : util.now();
 
   // Update global the store meta
-  var meta = getAll('_meta');
+  var meta = getAll(META);
   meta.updated = updated;
-  store.setItem('_meta', JSON.stringify(meta));
+  store.setItem(META, JSON.stringify(meta));
 
   // Update the origin meta
   if (!data.updated) {
     data.updated = updated;
   }
-  store.setItem('_meta_' + origin, JSON.stringify(data));
+  store.setItem(META + '_' + origin, JSON.stringify(data));
 
   return updated;
 };
@@ -494,7 +548,7 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
 var appList = exports.appList = function appList() {
   var list = [];
   for (var i = 0; i < store.length; i++) {
-    if (store.key(i).indexOf('_') !== 0) {
+    if (store.key(i).indexOf('http') === 0) {
       list.push(store.key(i));
     }
   }
@@ -510,11 +564,40 @@ var metaList = exports.metaList = function metaList() {
   var list = [];
   for (var i = 0; i < store.length; i++) {
     var item = store.key(i);
-    if (item.indexOf('_meta_') === 0) {
+    if (item.indexOf(META) === 0) {
       list.push(item);
     }
   }
   return list;
+};
+
+/**
+ * Registers the data store for an app URL.
+ *
+ * @param   {string} url The URL of the app
+ */
+var registerApp = exports.registerApp = function registerApp(url) {
+  if (!url || url.length === 0) {
+    return;
+  }
+  var origin = util.getOrigin(url);
+  if (!exists(origin)) {
+    store.setItem(origin, '{}');
+    store.setItem(META + '_' + origin, '{}');
+  }
+};
+
+/**
+ * Unregisters the data store for an app (origin).
+ *
+ * @param   {string} origin The origin of the app
+ */
+var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
+  if (!origin) {
+    return;
+  }
+  clear(origin);
+  clear(META + '_' + origin);
 };
 
 /**
@@ -536,7 +619,7 @@ var exportJSON = exports.exportJSON = function exportJSON() {
  * @param {object} data The contents of the store as a JSON object
  */
 var importJSON = exports.importJSON = function importJSON(data) {
-  if (!data) {
+  if (!data || util.isEmpty(data)) {
     return;
   }
 
@@ -548,35 +631,37 @@ var importJSON = exports.importJSON = function importJSON(data) {
 };
 
 /**
- * Check
+ * Verify if a key exists in the store
  *
- * @return {bool} If storage API is available
+ * @param {string} item They key to check
  */
-var isAvailable = exports.isAvailable = function isAvailable() {
-  var available = true;
-  try {
-    if (!store) {
-      available = false;
+var exists = exports.exists = function exists(item) {
+  for (var i = 0; i < store.length; i++) {
+    if (store.key(i) === item) {
+      return true;
     }
-  } catch (err) {
-    available = false;
   }
-  return available;
+  return false;
 };
 
 /**
- * A cross-browser version of Date.now compatible with IE8 that avoids
- * modifying the Date object.
+ * Check if the storage API is available
  *
- * @return {int} The current timestamp in milliseconds
+ * @return {bool} Availability status
  */
-var now = exports.now = function now() {
-  if (typeof Date.now === 'function') {
-    return Date.now();
+var available = exports.available = function available() {
+  var status = true;
+  try {
+    if (!store) {
+      status = false;
+    }
+  } catch (err) {
+    status = false;
+    console.log(err);
   }
-  return new Date().getTime();
+  return status;
 };
-},{}],3:[function(require,module,exports){
+},{"./util":4}],3:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -585,12 +670,18 @@ Object.defineProperty(exports, "__esModule", {
 exports.check = exports.push = exports.handleMessage = undefined;
 exports.initWSClient = initWSClient;
 
+var _util = require('./util');
+
+var util = _interopRequireWildcard(_util);
+
 var _store = require('./store');
 
 var store = _interopRequireWildcard(_store);
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
+// TODO: find a better supported URL composer
+// import * as url from 'url'
 function initWSClient(server, room) {
   return new Promise(function (resolve, reject) {
     server = server || 'ws://localhost:8080';
@@ -627,8 +718,6 @@ function initWSClient(server, room) {
  * @param   {object} msg The message recived by the WebSocket
  * @param   {string} client The local client ID
  */
-// TODO: find a better supported URL composer
-// import * as url from 'url'
 var handleMessage = exports.handleMessage = function handleMessage(ws, msg, client) {
   switch (msg.type) {
     case 'sync':
@@ -672,10 +761,15 @@ var push = exports.push = function push(ws, origin, request) {
 var updateHandler = function updateHandler(msg, client) {
   var meta = store.getMeta(msg.origin);
   // no need to update local store if we have updated already to this version
-  if (inTheFuture(msg.request.updated) || meta.updated >= msg.request.updated) {
+  if (inTheFuture(msg.request.updated)) {
     return;
   }
-  console.log('Syncing data');
+
+  if (!meta || util.isEmpty(meta) || meta.updated >= msg.request.updated) {
+    return;
+  }
+
+  console.log('Syncing data for', msg.origin);
 
   // Prepare response for the client app
   var response = store.prepareResponse(msg.origin, msg.request, client);
@@ -735,12 +829,17 @@ var check = exports.check = function check(ws) {
     return;
   }
   var appList = store.metaList();
+  if (appList.length === 0) {
+    return;
+  }
+
+  console.log('Checking for updates on other peers');
   for (var i = 0; i < appList.length; i++) {
     var meta = store.getAll(appList[i]);
     var req = {
       type: 'check',
       client: client,
-      origin: appList[i].split('_meta_')[1],
+      origin: appList[i].split(store.META + '_')[1],
       updated: meta.updated
     };
     ws.send(JSON.stringify(req));
@@ -756,7 +855,78 @@ var check = exports.check = function check(ws) {
 var inTheFuture = function inTheFuture() {
   var ts = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
 
-  return ts > store.now();
+  return ts > util.now();
 };
-},{"./store":2}]},{},[1])(1)
+},{"./store":2,"./util":4}],4:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+/**
+ * A cross-browser version of Date.now compatible with IE8 that avoids
+ * modifying the Date object.
+ *
+ * @return {int} The current timestamp in milliseconds
+ */
+var now = exports.now = function now() {
+  if (typeof Date.now === 'function') {
+    return Date.now();
+  }
+  return new Date().getTime();
+};
+
+/**
+ * Returns whether or not an object is empty.
+ *
+ * @param   {object} obj The object to check
+ * @returns {bool} Whether or not the object is empoty
+ */
+var isEmpty = exports.isEmpty = function isEmpty(obj) {
+  return Object.keys(obj).length === 0;
+};
+
+/**
+ * Returns whether or not the parameter is an object.
+ *
+ * @param   {*} obj The object to check
+ * @returns {bool} Whether or not the parameter is an object
+ */
+var isObject = exports.isObject = function isObject(thing) {
+  return (typeof thing === 'undefined' ? 'undefined' : _typeof(thing)) === 'object';
+};
+
+/**
+ * Creates an origin URL based on a given URI value
+ *
+ * @param   {string} url The url to use for the origin
+ * @returns {string} The origin value
+ */
+var getOrigin = exports.getOrigin = function getOrigin(url) {
+  var uri = void 0,
+      protocol = void 0,
+      origin = void 0;
+
+  uri = document.createElement('a');
+  uri.href = url;
+
+  if (!uri.host) {
+    uri = window.location;
+  }
+
+  if (!uri.protocol || uri.protocol === ':') {
+    protocol = window.location.protocol;
+  } else {
+    protocol = uri.protocol;
+  }
+
+  origin = protocol + '//' + uri.host;
+  origin = origin.replace(/:80$|:443$/, '');
+
+  return origin;
+};
+},{}]},{},[1])(1)
 });

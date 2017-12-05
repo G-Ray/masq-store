@@ -3,14 +3,15 @@ import * as store from './store'
 
 let debug = false
 let permissionList = []
+let parameters
 let wsClient
 let clientId = ''
 const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user']
 const wsTimeout = 3000 // Waiting (3s) for another attempt to reconnect to the WebSocket server
 
 const log = (...text) => {
-  if (debug) {
-    console.log(text)
+  if (parameters.debug) {
+    console.log('[Masq Store]', text)
   }
 }
 
@@ -35,10 +36,10 @@ const log = (...text) => {
  *   syncserver: 'wss://....'
  * });
  *
- * @param {array} parameters An array of objects used for configuration
+ * @param {array} options An array of objects used for configuration
  */
-export const init = (parameters) => {
-  debug = parameters.debug
+export const init = (options) => {
+  parameters = options || {}
 
   // Return if storage api is unavailable
   if (!store.available()) {
@@ -49,25 +50,17 @@ export const init = (parameters) => {
     }
   }
 
-  permissionList = parameters.permissions || []
-
-  // Listen to online/offline events in order to trigger sync
-  if (navigator.onLine !== undefined) {
-    window.addEventListener('online', () => {
-      onlineStatus(true, parameters)
-    })
-    window.addEventListener('offline', () => {
-      onlineStatus(false, parameters)
-    })
-
-    onlineStatus(navigator.onLine, parameters)
+  // Initialize the window event listener for postMessage. This allows us to
+  // communicate with the apps running in the parent window of the <iframe>.
+  if (window.addEventListener) {
+    window.addEventListener('message', listener, false)
   } else {
-    // Cannot detect connection status, let's try to connect anyway the first time
-    initWs(parameters)
+    window.attachEvent('onmessage', listener)
   }
+  // All set, let the app know we're listening
+  window.parent.postMessage({'cross-storage': 'listening'}, '*')
 
-  // All set, let the client app know we're ready
-  initListener()
+  log(`Listening to clients...`)
 }
 
 /**
@@ -76,7 +69,7 @@ export const init = (parameters) => {
  *
  * The current implementation unfortunately mutates the wsClient variable.
  */
-const initWs = (parameters) => {
+const initWs = () => {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
     return
   }
@@ -84,7 +77,6 @@ const initWs = (parameters) => {
     wsClient = ws
 
     // Check if we need to sync the local store
-    log(`Checking for updates on other peers`)
     sync.check(wsClient, clientId)
 
     wsClient.onmessage = (event) => {
@@ -114,20 +106,32 @@ const initWs = (parameters) => {
 }
 
 /**
- * Initialize the window event listener for postMessage. This allows us to
- * communicate with the apps running in the parent window of the <iframe>.
+ * Initialize the data store for the app origin.
  */
-const initListener = () => {
-  // Init listener
-  if (window.addEventListener) {
-    window.addEventListener('message', listener, false)
-  } else {
-    window.attachEvent('onmessage', listener)
-  }
-  // All set, let the app know we're ready
-  window.parent.postMessage({'cross-storage': 'ready'}, '*')
+const initApp = (origin, params) => {
+  console.log(`Attempting to initialize app: ${origin}`)
+  parameters = params || {}
+  // permissionList = params.permissions || []
 
-  log(`Listening to clients...`)
+  // Force register the app for now (until we have proper UI)
+  store.registerApp(origin)
+
+  // Listen to online/offline events in order to trigger sync
+  if (navigator.onLine !== undefined) {
+    window.addEventListener('online', () => {
+      onlineStatus(true, parameters)
+    })
+    window.addEventListener('offline', () => {
+      onlineStatus(false, parameters)
+    })
+
+    onlineStatus(navigator.onLine, parameters)
+  } else {
+    // Cannot detect connection status, try to force connect the first time
+    initWs(parameters)
+  }
+
+  window.parent.postMessage({'cross-storage': 'ready'}, origin)
 }
 
 /**
@@ -151,7 +155,6 @@ const listener = (message) => {
     return
   }
 
-  console.log('Request', request)
   if (request.client) {
     clientId = request.client
   }
@@ -161,8 +164,12 @@ const listener = (message) => {
 
   // Handle polling for a ready message
   if (request['cross-storage'] === 'poll') {
-    console.log('Polling...')
     window.parent.postMessage({'cross-storage': 'ready'}, message.origin)
+    return
+  }
+
+  if (request['cross-storage'] === 'init') {
+    initApp(origin, request)
     return
   }
 
@@ -190,8 +197,6 @@ const listener = (message) => {
       sync.push(wsClient, origin, request)
     }
   }
-
-  log(`Change detected: ${response}`)
 
   // postMessage requires that the target origin be set to "*" for "file://"
   targetOrigin = (origin === 'file://') ? '*' : origin
@@ -245,6 +250,28 @@ const onlineStatus = (online, parameters) => {
     }
     log(`Working offline.`)
   }
+}
+
+/**
+ * Register a given app based on its origin
+ *
+ * @param   {string} origin The origin of the app
+ */
+export const registerApp = (origin) => {
+  store.registerApp(origin)
+}
+
+/**
+ * Unregister a given app based on its origin
+ *
+ * @param   {string} origin The origin of the app
+ */
+export const unregisterApp = (origin) => {
+  store.unregisterApp(origin)
+}
+
+export const appList = () => {
+  return store.appList()
 }
 
 /**
