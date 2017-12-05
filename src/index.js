@@ -2,7 +2,7 @@ import * as sync from './sync'
 import * as store from './store'
 import * as acl from './permissions'
 
-let parameters
+let parameters = {}
 let wsClient
 let clientId = ''
 const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user']
@@ -40,7 +40,7 @@ const log = (...text) => {
  */
 export const init = (options) => {
   parameters = options || {}
-
+  console.log(parameters)
   // Return if storage api is unavailable
   if (!store.available()) {
     try {
@@ -73,6 +73,7 @@ const initWs = () => {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
     return
   }
+  console.log('initting WS')
   sync.initWSClient(parameters.syncserver, parameters.syncroom).then((ws) => {
     wsClient = ws
 
@@ -110,7 +111,6 @@ const initWs = () => {
  */
 const initApp = (origin, params) => {
   console.log(`Attempting to initialize app: ${origin}`)
-  parameters = params || {}
   // permissionList = params.permissions || []
 
   // Force register the app for now (until we have proper UI)
@@ -119,16 +119,16 @@ const initApp = (origin, params) => {
   // Listen to online/offline events in order to trigger sync
   if (navigator.onLine !== undefined) {
     window.addEventListener('online', () => {
-      onlineStatus(true, parameters)
+      onlineStatus(true, params)
     })
     window.addEventListener('offline', () => {
-      onlineStatus(false, parameters)
+      onlineStatus(false, params)
     })
 
-    onlineStatus(navigator.onLine, parameters)
+    onlineStatus(navigator.onLine, params)
   } else {
     // Cannot detect connection status, try to force connect the first time
-    initWs(parameters)
+    initWs(params)
   }
 
   window.parent.postMessage({'cross-storage': 'ready'}, origin)
@@ -169,7 +169,7 @@ const listener = (message) => {
   }
 
   if (request['cross-storage'] === 'init') {
-    initApp(origin, request)
+    initApp(origin, request.params)
     return
   }
 
@@ -233,11 +233,11 @@ const isPermitted = (origin, method) => {
  * to manage the WebSocket client connection.
  *
  * @param   {bool} online Whether we're cure
- * @param   {object} parameters Configuration parameters
+ * @param   {object} params Configuration parameters
  */
-const onlineStatus = (online, parameters) => {
+const onlineStatus = (online, params) => {
   if (online) {
-    initWs(parameters)
+    initWs(params)
   } else {
     if (wsClient) {
       wsClient.close()

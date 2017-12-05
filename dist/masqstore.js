@@ -20,7 +20,7 @@ var acl = _interopRequireWildcard(_permissions);
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-var parameters = void 0;
+var parameters = {};
 var wsClient = void 0;
 var clientId = '';
 var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user'];
@@ -62,7 +62,7 @@ var log = function log() {
  */
 var init = exports.init = function init(options) {
   parameters = options || {};
-
+  console.log(parameters);
   // Return if storage api is unavailable
   if (!store.available()) {
     try {
@@ -95,6 +95,7 @@ var initWs = function initWs() {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
     return;
   }
+  console.log('initting WS');
   sync.initWSClient(parameters.syncserver, parameters.syncroom).then(function (ws) {
     wsClient = ws;
 
@@ -132,7 +133,6 @@ var initWs = function initWs() {
  */
 var initApp = function initApp(origin, params) {
   console.log('Attempting to initialize app: ' + origin);
-  parameters = params || {};
   // permissionList = params.permissions || []
 
   // Force register the app for now (until we have proper UI)
@@ -141,16 +141,16 @@ var initApp = function initApp(origin, params) {
   // Listen to online/offline events in order to trigger sync
   if (navigator.onLine !== undefined) {
     window.addEventListener('online', function () {
-      onlineStatus(true, parameters);
+      onlineStatus(true, params);
     });
     window.addEventListener('offline', function () {
-      onlineStatus(false, parameters);
+      onlineStatus(false, params);
     });
 
-    onlineStatus(navigator.onLine, parameters);
+    onlineStatus(navigator.onLine, params);
   } else {
     // Cannot detect connection status, try to force connect the first time
-    initWs(parameters);
+    initWs(params);
   }
 
   window.parent.postMessage({ 'cross-storage': 'ready' }, origin);
@@ -194,7 +194,7 @@ var listener = function listener(message) {
   }
 
   if (request['cross-storage'] === 'init') {
-    initApp(origin, request);
+    initApp(origin, request.params);
     return;
   }
 
@@ -258,11 +258,11 @@ var isPermitted = function isPermitted(origin, method) {
  * to manage the WebSocket client connection.
  *
  * @param   {bool} online Whether we're cure
- * @param   {object} parameters Configuration parameters
+ * @param   {object} params Configuration parameters
  */
-var onlineStatus = function onlineStatus(online, parameters) {
+var onlineStatus = function onlineStatus(online, params) {
   if (online) {
-    initWs(parameters);
+    initWs(params);
   } else {
     if (wsClient) {
       wsClient.close();
