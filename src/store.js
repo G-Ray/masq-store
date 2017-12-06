@@ -17,8 +17,11 @@ export const META = '_meta'
  */
 export const prepareResponse = (origin, request, client) => {
   let error, result
-  const meta = { updated: request.updated }
   if (exists(origin)) {
+    const meta = getMeta(origin)
+    if (request.updated) {
+      meta.updated = request.updated
+    }
     try {
       // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
       switch (request.method) {
@@ -197,7 +200,7 @@ export const setMeta = (origin, data) => {
   const updated = (data.updated) ? data.updated : util.now()
 
   // Update the global store meta
-  let meta = getAll(META)
+  let meta = getMeta()
   meta.updated = updated
   store.setItem(META, JSON.stringify(meta))
 

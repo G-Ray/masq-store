@@ -102,9 +102,11 @@ const updateHandler = (msg, client) => {
   response.client = client
   response.sync = true
 
-  // postMessage requires that the target origin be set to "*" for "file://"
-  const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
-  window.parent.postMessage(response, targetOrigin)
+  if (window.self !== window.top) {
+    // postMessage requires that the target origin be set to "*" for "file://"
+    const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
+    window.parent.postMessage(response, targetOrigin)
+  }
 }
 
 /**
@@ -116,7 +118,7 @@ const updateHandler = (msg, client) => {
 const checkHandler = (msg, ws, client = '') => {
   // Check if we have local data that was changed after the specified data
   // but ignore request if the received timestamp comes from the future
-  if (msg.updated && !inTheFuture(msg.updated)) {
+  if (msg.updated !== undefined && !inTheFuture(msg.updated)) {
     const meta = store.getMeta(msg.origin)
     console.log('Checking local metadata', meta)
     if (msg.updated > meta.updated) {
@@ -157,10 +159,10 @@ export const check = (ws, client = '', list) => {
     return
   }
 
-  console.log(`Checking for updates on other peers for apps:`, appList)
+  console.log(`Checking for updates on other peers for apps`)
   for (let i = 0; i < appList.length; i++) {
     const meta = store.getAll(appList[i])
-    console.log(meta)
+    console.log(`Sending sync request`)
     let req = {
       type: 'check',
       client: client,

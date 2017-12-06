@@ -397,8 +397,11 @@ var META = exports.META = '_meta';
 var prepareResponse = exports.prepareResponse = function prepareResponse(origin, request, client) {
   var error = void 0,
       result = void 0;
-  var meta = { updated: request.updated };
   if (exists(origin)) {
+    var meta = getMeta(origin);
+    if (request.updated) {
+      meta.updated = request.updated;
+    }
     try {
       // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
       switch (request.method) {
@@ -579,7 +582,7 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
   var updated = data.updated ? data.updated : util.now();
 
   // Update the global store meta
-  var meta = getAll(META);
+  var meta = getMeta();
   meta.updated = updated;
   store.setItem(META, JSON.stringify(meta));
 
@@ -845,9 +848,11 @@ var updateHandler = function updateHandler(msg, client) {
   response.client = client;
   response.sync = true;
 
-  // postMessage requires that the target origin be set to "*" for "file://"
-  var targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
-  window.parent.postMessage(response, targetOrigin);
+  if (window.self !== window.top) {
+    // postMessage requires that the target origin be set to "*" for "file://"
+    var targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
+    window.parent.postMessage(response, targetOrigin);
+  }
 };
 
 /**
@@ -861,7 +866,7 @@ var checkHandler = function checkHandler(msg, ws) {
 
   // Check if we have local data that was changed after the specified data
   // but ignore request if the received timestamp comes from the future
-  if (msg.updated && !inTheFuture(msg.updated)) {
+  if (msg.updated !== undefined && !inTheFuture(msg.updated)) {
     var meta = store.getMeta(msg.origin);
     console.log('Checking local metadata', meta);
     if (msg.updated > meta.updated) {
@@ -905,10 +910,10 @@ var check = exports.check = function check(ws) {
     return;
   }
 
-  console.log('Checking for updates on other peers for apps:', appList);
+  console.log('Checking for updates on other peers for apps');
   for (var i = 0; i < appList.length; i++) {
     var meta = store.getAll(appList[i]);
-    console.log(meta);
+    console.log('Sending sync request');
     var req = {
       type: 'check',
       client: client,
