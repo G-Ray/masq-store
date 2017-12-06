@@ -215,21 +215,25 @@ export const setMeta = (origin, data) => {
  *
  * @param   {string} url The URL of the app
  * @param   {array} perms The list of permissions for the app
+ * @return  {string} The meta key for the app
  */
 export const registerApp = (url, perms = []) => {
-  if (!url || url.length === 0) {
-    return
-  }
-  const origin = util.getOrigin(url)
-  if (!exists(origin)) {
-    store.setItem(origin, '{}')
+  if (url && url.length > 0) {
+    const origin = util.getOrigin(url)
+    if (!exists(origin)) {
+      store.setItem(origin, '{}')
 
-    let meta = {
-      permissions: perms,
-      updated: 0
+      let meta = {
+        origin: origin,
+        permissions: perms,
+        updated: 0
+      }
+      const appMeta = `${META}_${origin}`
+      store.setItem(appMeta, JSON.stringify(meta))
+      return appMeta
     }
-    store.setItem(`${META}_${origin}`, JSON.stringify(meta))
   }
+  return ''
 }
 
 /**
@@ -269,7 +273,7 @@ export const metaList = () => {
   let list = []
   for (let i = 0; i < store.length; i++) {
     const item = store.key(i)
-    if (item.indexOf(META) === 0) {
+    if (item.indexOf(`${META}_`) === 0) {
       list.push(item)
     }
   }

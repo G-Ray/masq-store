@@ -4,7 +4,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.isWhitelisted = exports.importJSON = exports.exportJSON = exports.appList = exports.unregisterApp = exports.registerApp = exports.init = undefined;
+exports.importJSON = exports.exportJSON = exports.appList = exports.unregisterApp = exports.registerApp = exports.init = undefined;
 
 var _sync = require('./sync');
 
@@ -17,6 +17,10 @@ var store = _interopRequireWildcard(_store);
 var _permissions = require('./permissions');
 
 var acl = _interopRequireWildcard(_permissions);
+
+var _util = require('./util');
+
+var util = _interopRequireWildcard(_util);
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
@@ -51,17 +55,15 @@ var log = function log() {
  * @example
  * // Subdomain can get, but only root domain can set and del
  * MasqStore.init({
- *   permissions: [{origin: /\.example.com$/, allow: ['get']},
- *    {origin: /:(www\.)?example.com$/, allow: ['get', 'set', 'del']}],
  *   debug: false,
  *   syncroom: 'someRandomName',
  *   syncserver: 'wss://....'
  * });
  *
- * @param {array} options An array of objects used for configuration
+ * @param {array} params An array of objects used for configuration
  */
-var init = exports.init = function init(options) {
-  parameters = options || {};
+var init = exports.init = function init(params) {
+  parameters = params || {};
   console.log(parameters);
   // Return if storage api is unavailable
   if (!store.available()) {
@@ -70,6 +72,21 @@ var init = exports.init = function init(options) {
     } catch (e) {
       return;
     }
+  }
+
+  // Listen to online/offline events in order to trigger sync
+  if (navigator.onLine !== undefined) {
+    window.addEventListener('online', function () {
+      onlineStatus(true, params);
+    });
+    window.addEventListener('offline', function () {
+      onlineStatus(false, params);
+    });
+
+    onlineStatus(navigator.onLine, params);
+  } else {
+    // Cannot detect connection status, try to force connect the first time
+    initWs(params);
   }
 
   // Initialize the window event listener for postMessage. This allows us to
@@ -91,12 +108,15 @@ var init = exports.init = function init(options) {
  *
  * The current implementation unfortunately mutates the wsClient variable.
  */
-var initWs = function initWs() {
+var initWs = function initWs(params) {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
     return;
   }
-  console.log('initting WS');
-  sync.initWSClient(parameters.syncserver, parameters.syncroom).then(function (ws) {
+  if (!params) {
+    params = parameters;
+  }
+  log('Initializing WebSocket with params:', params);
+  sync.initWSClient(params.syncserver, params.syncroom).then(function (ws) {
     wsClient = ws;
 
     // Check if we need to sync the local store
@@ -136,22 +156,7 @@ var initApp = function initApp(origin, params) {
   // permissionList = params.permissions || []
 
   // Force register the app for now (until we have proper UI)
-  store.registerApp(origin);
-
-  // Listen to online/offline events in order to trigger sync
-  if (navigator.onLine !== undefined) {
-    window.addEventListener('online', function () {
-      onlineStatus(true, params);
-    });
-    window.addEventListener('offline', function () {
-      onlineStatus(false, params);
-    });
-
-    onlineStatus(navigator.onLine, params);
-  } else {
-    // Cannot detect connection status, try to force connect the first time
-    initWs(params);
-  }
+  registerApp(origin);
 
   window.parent.postMessage({ 'cross-storage': 'ready' }, origin);
 };
@@ -242,7 +247,7 @@ var isPermitted = function isPermitted(origin, method) {
     return false;
   }
 
-  if (isWhitelisted(origin)) {
+  if (util.isLocal(origin)) {
     return true;
   }
 
@@ -261,6 +266,7 @@ var isPermitted = function isPermitted(origin, method) {
  * @param   {object} params Configuration parameters
  */
 var onlineStatus = function onlineStatus(online, params) {
+  // if (online || util.isLocal(params.syncserver)) {
   if (online) {
     initWs(params);
   } else {
@@ -284,7 +290,12 @@ var registerApp = exports.registerApp = function registerApp(origin) {
   if (permissions.length === 0) {
     permissions = defaultPermissions;
   }
-  store.registerApp(origin, permissions);
+  var appMeta = store.registerApp(origin, permissions);
+  if (appMeta) {
+    log('Registered app:', origin);
+    // Trigger sync if this was a new app we just added
+    sync.check(wsClient, clientId, [appMeta]);
+  }
 };
 
 /**
@@ -317,27 +328,7 @@ var exportJSON = exports.exportJSON = function exportJSON() {
 var importJSON = exports.importJSON = function importJSON(data) {
   store.importJSON(data);
 };
-
-/**
- * Check if an app origin is whitelisted
- *
- * @param {string} origin The origin of the app
- * @return {bool} True if whitelisted
- */
-var isWhitelisted = exports.isWhitelisted = function isWhitelisted(origin) {
-  var permissionList = [/^https?:\/\/localhost+(:[0-9]*)?/, /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, /^https?:\/\/192\.168\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/];
-  for (var i = 0; i < permissionList.length; i++) {
-    var entry = permissionList[i];
-    if (!(entry instanceof RegExp)) {
-      continue;
-    }
-    if (entry.test(origin)) {
-      return true;
-    }
-  }
-  return false;
-};
-},{"./permissions":2,"./store":3,"./sync":4}],2:[function(require,module,exports){
+},{"./permissions":2,"./store":3,"./sync":4,"./util":5}],2:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -606,23 +597,27 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
  *
  * @param   {string} url The URL of the app
  * @param   {array} perms The list of permissions for the app
+ * @return  {string} The meta key for the app
  */
 var registerApp = exports.registerApp = function registerApp(url) {
   var perms = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
 
-  if (!url || url.length === 0) {
-    return;
-  }
-  var origin = util.getOrigin(url);
-  if (!exists(origin)) {
-    store.setItem(origin, '{}');
+  if (url && url.length > 0) {
+    var origin = util.getOrigin(url);
+    if (!exists(origin)) {
+      store.setItem(origin, '{}');
 
-    var meta = {
-      permissions: perms,
-      updated: 0
-    };
-    store.setItem(META + '_' + origin, JSON.stringify(meta));
+      var meta = {
+        origin: origin,
+        permissions: perms,
+        updated: 0
+      };
+      var appMeta = META + '_' + origin;
+      store.setItem(appMeta, JSON.stringify(meta));
+      return appMeta;
+    }
   }
+  return '';
 };
 
 /**
@@ -662,7 +657,7 @@ var metaList = exports.metaList = function metaList() {
   var list = [];
   for (var i = 0; i < store.length; i++) {
     var item = store.key(i);
-    if (item.indexOf(META) === 0) {
+    if (item.indexOf(META + '_') === 0) {
       list.push(item);
     }
   }
@@ -828,6 +823,9 @@ var push = exports.push = function push(ws, origin, request) {
  * @param   {string} client The local client ID
  */
 var updateHandler = function updateHandler(msg, client) {
+  if (!msg.origin) {
+    return;
+  }
   var meta = store.getMeta(msg.origin);
   // no need to update local store if we have updated already to this version
   if (inTheFuture(msg.request.updated)) {
@@ -838,7 +836,7 @@ var updateHandler = function updateHandler(msg, client) {
     return;
   }
 
-  console.log('Syncing data for', msg.origin);
+  console.log('Syncing data for', msg, msg.origin);
 
   // Prepare response for the client app
   var response = store.prepareResponse(msg.origin, msg.request, client);
@@ -865,11 +863,14 @@ var checkHandler = function checkHandler(msg, ws) {
   // but ignore request if the received timestamp comes from the future
   if (msg.updated && !inTheFuture(msg.updated)) {
     var meta = store.getMeta(msg.origin);
+    console.log('Checking local metadata', meta);
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
+      console.log('We have old data and need to update');
       check(ws, client);
     } else {
       // We have fresh data and we need to send it.
+      console.log('We\'re sending new data');
       var resp = {
         type: 'sync',
         client: msg.client,
@@ -890,25 +891,28 @@ var checkHandler = function checkHandler(msg, ws) {
  *
  * @param   {object} ws The WebSocket client
  * @param   {string} client The local client ID
+ * @param   {array} list A list of app origins to check
  */
 var check = exports.check = function check(ws) {
   var client = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  var list = arguments[2];
 
   if (!ws) {
     return;
   }
-  var appList = store.metaList();
+  var appList = list || store.metaList();
   if (appList.length === 0) {
     return;
   }
 
-  console.log('Checking for updates on other peers');
+  console.log('Checking for updates on other peers for apps:', appList);
   for (var i = 0; i < appList.length; i++) {
     var meta = store.getAll(appList[i]);
+    console.log(meta);
     var req = {
       type: 'check',
       client: client,
-      origin: appList[i].split(store.META + '_')[1],
+      origin: meta.origin,
       updated: meta.updated
     };
     ws.send(JSON.stringify(req));
@@ -996,6 +1000,44 @@ var getOrigin = exports.getOrigin = function getOrigin(url) {
   origin = origin.replace(/:80$|:443$/, '');
 
   return origin;
+};
+
+/**
+ * Check if an (origin) URL is local based on the RFC 1918 list of reserved
+ * addresses. It accepts http(s) and ws(s) schemas as well as port numbers.
+ *
+ * localhost
+ * 127.0.0.0 – 127.255.255.255
+ * 10.0.0.0 – 10.255.255.255
+ * 172.16.0.0 – 172.31.255.255
+ * 192.168.0.0 – 192.168.255.255
+ * + extra zero config range on IEEE 802 networks:
+ * 169.254.1.0 - 169.254.254.255
+ *
+ * Example:
+ * http://localhost:8080
+ * https://192.168.1.112
+ * ws://10.8.8.8:9999
+ * 169.254.22.99
+ *
+ * @param {string} url The (origin) URL to check
+ * @return {bool} True if it's local
+ */
+var isLocal = exports.isLocal = function isLocal(url) {
+  if (!url || url.length === 0) {
+    return false;
+  }
+  var localNets = [/^(https?:\/\/|wss?:\/\/)?localhost+(:[0-9]*)?/, /^(https?:\/\/|wss?:\/\/)?127\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, /^(https?:\/\/|wss?:\/\/)?10\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, /^(https?:\/\/|wss?:\/\/)?172\.(1[89]|2[0-9]|3[01])\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, /^(https?:\/\/|wss?:\/\/)?192\.168\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/, /^(https?:\/\/|wss?:\/\/)?169\.254\.([1-9]|[1-9]\d|1\d\d|2([0-4]\d|5[0-4]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/];
+  for (var i = 0; i < localNets.length; i++) {
+    var entry = localNets[i];
+    if (!(entry instanceof RegExp)) {
+      continue;
+    }
+    if (entry.test(url)) {
+      return true;
+    }
+  }
+  return false;
 };
 },{}]},{},[1])(1)
 });

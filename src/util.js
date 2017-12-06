@@ -58,3 +58,48 @@ export const getOrigin = (url) => {
 
   return origin
 }
+
+/**
+ * Check if an (origin) URL is local based on the RFC 1918 list of reserved
+ * addresses. It accepts http(s) and ws(s) schemas as well as port numbers.
+ *
+ * localhost
+ * 127.0.0.0 – 127.255.255.255
+ * 10.0.0.0 – 10.255.255.255
+ * 172.16.0.0 – 172.31.255.255
+ * 192.168.0.0 – 192.168.255.255
+ * + extra zero config range on IEEE 802 networks:
+ * 169.254.1.0 - 169.254.254.255
+ *
+ * Example:
+ * http://localhost:8080
+ * https://192.168.1.112
+ * ws://10.8.8.8:9999
+ * 169.254.22.99
+ *
+ * @param {string} url The (origin) URL to check
+ * @return {bool} True if it's local
+ */
+export const isLocal = (url) => {
+  if (!url || url.length === 0) {
+    return false
+  }
+  const localNets = [
+    /^(https?:\/\/|wss?:\/\/)?localhost+(:[0-9]*)?/,
+    /^(https?:\/\/|wss?:\/\/)?127\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/,
+    /^(https?:\/\/|wss?:\/\/)?10\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/,
+    /^(https?:\/\/|wss?:\/\/)?172\.(1[89]|2[0-9]|3[01])\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/,
+    /^(https?:\/\/|wss?:\/\/)?192\.168\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/,
+    /^(https?:\/\/|wss?:\/\/)?169\.254\.([1-9]|[1-9]\d|1\d\d|2([0-4]\d|5[0-4]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/
+  ]
+  for (let i = 0; i < localNets.length; i++) {
+    const entry = localNets[i]
+    if (!(entry instanceof RegExp)) {
+      continue
+    }
+    if (entry.test(url)) {
+      return true
+    }
+  }
+  return false
+}

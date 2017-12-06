@@ -1,6 +1,7 @@
 import * as sync from './sync'
 import * as store from './store'
 import * as acl from './permissions'
+import * as util from './util'
 
 let parameters = {}
 let wsClient
@@ -29,17 +30,15 @@ const log = (...text) => {
  * @example
  * // Subdomain can get, but only root domain can set and del
  * MasqStore.init({
- *   permissions: [{origin: /\.example.com$/, allow: ['get']},
- *    {origin: /:(www\.)?example.com$/, allow: ['get', 'set', 'del']}],
  *   debug: false,
  *   syncroom: 'someRandomName',
  *   syncserver: 'wss://....'
  * });
  *
- * @param {array} options An array of objects used for configuration
+ * @param {array} params An array of objects used for configuration
  */
-export const init = (options) => {
-  parameters = options || {}
+export const init = (params) => {
+  parameters = params || {}
   console.log(parameters)
   // Return if storage api is unavailable
   if (!store.available()) {
@@ -48,6 +47,21 @@ export const init = (options) => {
     } catch (e) {
       return
     }
+  }
+
+  // Listen to online/offline events in order to trigger sync
+  if (navigator.onLine !== undefined) {
+    window.addEventListener('online', () => {
+      onlineStatus(true, params)
+    })
+    window.addEventListener('offline', () => {
+      onlineStatus(false, params)
+    })
+
+    onlineStatus(navigator.onLine, params)
+  } else {
+    // Cannot detect connection status, try to force connect the first time
+    initWs(params)
   }
 
   // Initialize the window event listener for postMessage. This allows us to
@@ -69,12 +83,15 @@ export const init = (options) => {
  *
  * The current implementation unfortunately mutates the wsClient variable.
  */
-const initWs = () => {
+const initWs = (params) => {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
     return
   }
-  console.log('initting WS')
-  sync.initWSClient(parameters.syncserver, parameters.syncroom).then((ws) => {
+  if (!params) {
+    params = parameters
+  }
+  log('Initializing WebSocket with params:', params)
+  sync.initWSClient(params.syncserver, params.syncroom).then((ws) => {
     wsClient = ws
 
     // Check if we need to sync the local store
@@ -114,22 +131,7 @@ const initApp = (origin, params) => {
   // permissionList = params.permissions || []
 
   // Force register the app for now (until we have proper UI)
-  store.registerApp(origin)
-
-  // Listen to online/offline events in order to trigger sync
-  if (navigator.onLine !== undefined) {
-    window.addEventListener('online', () => {
-      onlineStatus(true, params)
-    })
-    window.addEventListener('offline', () => {
-      onlineStatus(false, params)
-    })
-
-    onlineStatus(navigator.onLine, params)
-  } else {
-    // Cannot detect connection status, try to force connect the first time
-    initWs(params)
-  }
+  registerApp(origin)
 
   window.parent.postMessage({'cross-storage': 'ready'}, origin)
 }
@@ -217,7 +219,7 @@ const isPermitted = (origin, method) => {
     return false
   }
 
-  if (isWhitelisted(origin)) {
+  if (util.isLocal(origin)) {
     return true
   }
 
@@ -236,6 +238,7 @@ const isPermitted = (origin, method) => {
  * @param   {object} params Configuration parameters
  */
 const onlineStatus = (online, params) => {
+  // if (online || util.isLocal(params.syncserver)) {
   if (online) {
     initWs(params)
   } else {
@@ -257,7 +260,12 @@ export const registerApp = (origin, permissions = []) => {
   if (permissions.length === 0) {
     permissions = defaultPermissions
   }
-  store.registerApp(origin, permissions)
+  const appMeta = store.registerApp(origin, permissions)
+  if (appMeta) {
+    log(`Registered app:`, origin)
+    // Trigger sync if this was a new app we just added
+    sync.check(wsClient, clientId, [ appMeta ])
+  }
 }
 
 /**
@@ -289,29 +297,4 @@ export const exportJSON = () => {
  */
 export const importJSON = (data) => {
   store.importJSON(data)
-}
-
-/**
- * Check if an app origin is whitelisted
- *
- * @param {string} origin The origin of the app
- * @return {bool} True if whitelisted
- */
-export const isWhitelisted = (origin) => {
-  const permissionList = [
-    /^https?:\/\/localhost+(:[0-9]*)?/,
-    /^https?:\/\/127\.0\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/,
-    /^https?:\/\/192\.168\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/,
-    /^https?:\/\/172\.18\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))\.(\d|[1-9]\d|1\d\d|2([0-4]\d|5[0-5]))+(:[0-9]*)?/
-  ]
-  for (let i = 0; i < permissionList.length; i++) {
-    const entry = permissionList[i]
-    if (!(entry instanceof RegExp)) {
-      continue
-    }
-    if (entry.test(origin)) {
-      return true
-    }
-  }
-  return false
 }

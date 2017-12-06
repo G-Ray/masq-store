@@ -80,6 +80,9 @@ export const push = (ws, origin, request) => {
  * @param   {string} client The local client ID
  */
 const updateHandler = (msg, client) => {
+  if (!msg.origin) {
+    return
+  }
   const meta = store.getMeta(msg.origin)
   // no need to update local store if we have updated already to this version
   if (inTheFuture(msg.request.updated)) {
@@ -90,7 +93,7 @@ const updateHandler = (msg, client) => {
     return
   }
 
-  console.log('Syncing data for', msg.origin)
+  console.log('Syncing data for', msg, msg.origin)
 
   // Prepare response for the client app
   let response = store.prepareResponse(msg.origin, msg.request, client)
@@ -115,11 +118,14 @@ const checkHandler = (msg, ws, client = '') => {
   // but ignore request if the received timestamp comes from the future
   if (msg.updated && !inTheFuture(msg.updated)) {
     const meta = store.getMeta(msg.origin)
+    console.log('Checking local metadata', meta)
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
+      console.log(`We have old data and need to update`)
       check(ws, client)
     } else {
       // We have fresh data and we need to send it.
+      console.log(`We're sending new data`)
       const resp = {
         type: 'sync',
         client: msg.client,
@@ -140,23 +146,25 @@ const checkHandler = (msg, ws, client = '') => {
  *
  * @param   {object} ws The WebSocket client
  * @param   {string} client The local client ID
+ * @param   {array} list A list of app origins to check
  */
-export const check = (ws, client = '') => {
+export const check = (ws, client = '', list) => {
   if (!ws) {
     return
   }
-  const appList = store.metaList()
+  const appList = list || store.metaList()
   if (appList.length === 0) {
     return
   }
 
-  console.log(`Checking for updates on other peers`)
+  console.log(`Checking for updates on other peers for apps:`, appList)
   for (let i = 0; i < appList.length; i++) {
     const meta = store.getAll(appList[i])
+    console.log(meta)
     let req = {
       type: 'check',
       client: client,
-      origin: appList[i].split(`${store.META}_`)[1],
+      origin: meta.origin,
       updated: meta.updated
     }
     ws.send(JSON.stringify(req))
