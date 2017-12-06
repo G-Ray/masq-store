@@ -39,7 +39,7 @@ const log = (...text) => {
  */
 export const init = (params) => {
   parameters = params || {}
-  console.log(parameters)
+
   // Return if storage api is unavailable
   if (!store.available()) {
     try {

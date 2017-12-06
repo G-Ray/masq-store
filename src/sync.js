@@ -18,14 +18,13 @@ export function initWSClient (server, room) {
         window.clearInterval(window.timerID)
         delete window.timerID
       }
-
-      // console.log(`Connected to ${wsUrl}`)
+      console.log(`Connected to Sync server at ${wsUrl}`)
       // TODO: check if we need to sync with other devices
       return resolve(ws)
     }
 
     ws.onerror = (event) => {
-      const err = `Could not connect to server at ${wsUrl}`
+      const err = `Could not connect to Sync server at ${wsUrl}`
       // console.log(err)
       return reject(err)
     }
@@ -120,14 +119,11 @@ const checkHandler = (msg, ws, client = '') => {
   // but ignore request if the received timestamp comes from the future
   if (msg.updated !== undefined && !inTheFuture(msg.updated)) {
     const meta = store.getMeta(msg.origin)
-    console.log('Checking local metadata', meta)
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
-      console.log(`We have old data and need to update`)
       check(ws, client)
     } else {
       // We have fresh data and we need to send it.
-      console.log(`We're sending new data`)
       const resp = {
         type: 'sync',
         client: msg.client,
@@ -159,10 +155,8 @@ export const check = (ws, client = '', list) => {
     return
   }
 
-  console.log(`Checking for updates on other peers for apps`)
   for (let i = 0; i < appList.length; i++) {
     const meta = store.getAll(appList[i])
-    console.log(`Sending sync request`)
     let req = {
       type: 'check',
       client: client,

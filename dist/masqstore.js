@@ -64,7 +64,7 @@ var log = function log() {
  */
 var init = exports.init = function init(params) {
   parameters = params || {};
-  console.log(parameters);
+
   // Return if storage api is unavailable
   if (!store.available()) {
     try {
@@ -764,14 +764,13 @@ function initWSClient(server, room) {
         window.clearInterval(window.timerID);
         delete window.timerID;
       }
-
-      // console.log(`Connected to ${wsUrl}`)
+      console.log('Connected to Sync server at ' + wsUrl);
       // TODO: check if we need to sync with other devices
       return resolve(ws);
     };
 
     ws.onerror = function (event) {
-      var err = 'Could not connect to server at ' + wsUrl;
+      var err = 'Could not connect to Sync server at ' + wsUrl;
       // console.log(err)
       return reject(err);
     };
@@ -868,14 +867,11 @@ var checkHandler = function checkHandler(msg, ws) {
   // but ignore request if the received timestamp comes from the future
   if (msg.updated !== undefined && !inTheFuture(msg.updated)) {
     var meta = store.getMeta(msg.origin);
-    console.log('Checking local metadata', meta);
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
-      console.log('We have old data and need to update');
       check(ws, client);
     } else {
       // We have fresh data and we need to send it.
-      console.log('We\'re sending new data');
       var resp = {
         type: 'sync',
         client: msg.client,
@@ -910,10 +906,8 @@ var check = exports.check = function check(ws) {
     return;
   }
 
-  console.log('Checking for updates on other peers for apps');
   for (var i = 0; i < appList.length; i++) {
     var meta = store.getAll(appList[i]);
-    console.log('Sending sync request');
     var req = {
       type: 'check',
       client: client,
