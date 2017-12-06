@@ -7,6 +7,11 @@
 </head>
 <body>
   <div>
+    <h3>Profile picture</h3>
+    <p><img id="picture" width="100"></p>
+    <input id="file" type="file"/>
+  </div>
+  <div>
     <h3>Register an app:</h3>
     <input type="text" name="app" id="app">
     <button id="add">Register</button>
@@ -54,6 +59,27 @@
     }
 
     listApps()
+
+    function getBase64 (file) {
+      // 100k file
+      if (file.size <= 100000) {
+        var reader = new FileReader()
+        reader.readAsDataURL(file)
+        reader.onload = function () {
+          document.getElementById('picture').src = reader.result
+        }
+        reader.onerror = function (error) {
+          console.log('Error: ', error)
+        }
+      }
+    }
+
+    document.getElementById('file').addEventListener('change', function () {
+      var files = document.getElementById('file').files
+      if (files.length > 0) {
+        getBase64(files[0])
+      }
+    })
 
     // Install ServiceWorker to cache app files
     // if ('serviceWorker' in navigator) {
