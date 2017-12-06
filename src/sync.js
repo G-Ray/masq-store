@@ -5,7 +5,6 @@ import * as store from './store'
 
 export function initWSClient (server, room) {
   return new Promise((resolve, reject) => {
-    server = server || 'ws://localhost:8080'
     room = room || 'foo'
     // const wsUrl = url.resolve(server, room)
     const wsUrl = (window.URL !== undefined) ? new window.URL(room, server) : server + room

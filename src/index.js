@@ -5,6 +5,7 @@ import * as util from './util'
 
 let parameters = {}
 let wsClient
+const devSyncServer = 'ws://localhost:8080'
 let clientId = ''
 const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user']
 const defaultPermissions = availableMethods
@@ -37,8 +38,8 @@ const log = (...text) => {
  *
  * @param {array} params An array of objects used for configuration
  */
-export const init = (params) => {
-  parameters = params || {}
+export const init = (params = {}) => {
+  parameters = params
 
   // Return if storage api is unavailable
   if (!store.available()) {
@@ -238,8 +239,8 @@ const isPermitted = (origin, method) => {
  * @param   {object} params Configuration parameters
  */
 const onlineStatus = (online, params) => {
-  // if (online || util.isLocal(params.syncserver)) {
-  if (online) {
+  params.syncserver = params.syncserver || devSyncServer
+  if (online || util.isLocal(params.syncserver)) {
     initWs(params)
   } else {
     if (wsClient) {

@@ -26,6 +26,7 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 var parameters = {};
 var wsClient = void 0;
+var devSyncServer = 'ws://localhost:8080';
 var clientId = '';
 var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user'];
 var defaultPermissions = availableMethods;
@@ -62,8 +63,10 @@ var log = function log() {
  *
  * @param {array} params An array of objects used for configuration
  */
-var init = exports.init = function init(params) {
-  parameters = params || {};
+var init = exports.init = function init() {
+  var params = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+  parameters = params;
 
   // Return if storage api is unavailable
   if (!store.available()) {
@@ -266,8 +269,8 @@ var isPermitted = function isPermitted(origin, method) {
  * @param   {object} params Configuration parameters
  */
 var onlineStatus = function onlineStatus(online, params) {
-  // if (online || util.isLocal(params.syncserver)) {
-  if (online) {
+  params.syncserver = params.syncserver || devSyncServer;
+  if (online || util.isLocal(params.syncserver)) {
     initWs(params);
   } else {
     if (wsClient) {
@@ -751,7 +754,6 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 // import * as url from 'url'
 function initWSClient(server, room) {
   return new Promise(function (resolve, reject) {
-    server = server || 'ws://localhost:8080';
     room = room || 'foo';
     // const wsUrl = url.resolve(server, room)
     var wsUrl = window.URL !== undefined ? new window.URL(room, server) : server + room;
