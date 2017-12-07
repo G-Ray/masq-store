@@ -1,7 +1,7 @@
 'use strict';
 
 var staticCacheName = 'app-cache-v1.0.0';
-var filesToCache = ['.', 'dist/store.js', 'index.html'];
+var filesToCache = ['.', 'masqstore.min.js', 'index.html'];
 
 self.addEventListener('install', function (event) {
   console.log('Attempting to install service worker and cache static assets');

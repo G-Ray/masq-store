@@ -10,6 +10,7 @@ let clientId = ''
 const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user']
 const defaultPermissions = availableMethods
 const wsTimeout = 3000 // Waiting (3s) for another attempt to reconnect to the WebSocket server
+const USER = '_user'
 
 const log = (...text) => {
   if (parameters.debug) {
@@ -44,9 +45,10 @@ export const init = (params = {}) => {
   // Return if storage api is unavailable
   if (!store.available()) {
     try {
-      return window.parent.postMessage({'cross-storage': 'unavailable'}, '*')
-    } catch (e) {
+      window.parent.postMessage({'cross-storage': 'unavailable'}, '*')
       return
+    } catch (e) {
+      return e
     }
   }
 
@@ -128,7 +130,7 @@ const initWs = (params) => {
  * Initialize the data store for the app origin.
  */
 const initApp = (origin, params) => {
-  console.log(`Attempting to initialize app: ${origin}`)
+  console.log(`Initializing app ${origin}`)
   // permissionList = params.permissions || []
 
   // Force register the app for now (until we have proper UI)
@@ -298,4 +300,22 @@ export const exportJSON = () => {
  */
 export const importJSON = (data) => {
   store.importJSON(data)
+}
+
+/**
+ * Wrapper that returns the public profile for the current user.
+ *
+ * @return {object} The public profile object
+ */
+export const user = () => {
+  return store.getAll(USER)
+}
+
+/**
+ * Wrapper that updates the public profile for the current user.
+ *
+ * @param {object} data The public profile object to be stored
+ */
+export const updateUser = (data) => {
+  store.setAll(USER, data)
 }

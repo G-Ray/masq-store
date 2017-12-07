@@ -103,3 +103,23 @@ export const isLocal = (url) => {
   }
   return false
 }
+
+export const dataToImg = (base64data) => {
+  const data = base64data.split(',')[1]
+  // var binary = atob(data);
+  let binary
+  if (base64data.split(',')[0].indexOf('base64') >= 0) {
+    binary = atob(data)
+  } else {
+    binary = decodeURI(data)
+  }
+
+  const buffer = new ArrayBuffer(binary.length)
+  let ia = new Uint8Array(buffer)
+  for (let i = 0; i < binary.length; i++) {
+    ia[i] = binary.charCodeAt(i)
+  }
+  const blob = new Blob([ia], {type: $scope.imageType})
+
+  return blob
+}

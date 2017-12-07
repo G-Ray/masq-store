@@ -4,7 +4,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.importJSON = exports.exportJSON = exports.appList = exports.unregisterApp = exports.registerApp = exports.init = undefined;
+exports.updateUser = exports.user = exports.importJSON = exports.exportJSON = exports.appList = exports.unregisterApp = exports.registerApp = exports.init = undefined;
 
 var _sync = require('./sync');
 
@@ -31,6 +31,7 @@ var clientId = '';
 var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user'];
 var defaultPermissions = availableMethods;
 var wsTimeout = 3000; // Waiting (3s) for another attempt to reconnect to the WebSocket server
+var USER = '_user';
 
 var log = function log() {
   for (var _len = arguments.length, text = Array(_len), _key = 0; _key < _len; _key++) {
@@ -71,9 +72,10 @@ var init = exports.init = function init() {
   // Return if storage api is unavailable
   if (!store.available()) {
     try {
-      return window.parent.postMessage({ 'cross-storage': 'unavailable' }, '*');
-    } catch (e) {
+      window.parent.postMessage({ 'cross-storage': 'unavailable' }, '*');
       return;
+    } catch (e) {
+      return e;
     }
   }
 
@@ -155,7 +157,7 @@ var initWs = function initWs(params) {
  * Initialize the data store for the app origin.
  */
 var initApp = function initApp(origin, params) {
-  console.log('Attempting to initialize app: ' + origin);
+  console.log('Initializing app ' + origin);
   // permissionList = params.permissions || []
 
   // Force register the app for now (until we have proper UI)
@@ -331,6 +333,24 @@ var exportJSON = exports.exportJSON = function exportJSON() {
 var importJSON = exports.importJSON = function importJSON(data) {
   store.importJSON(data);
 };
+
+/**
+ * Wrapper that returns the public profile for the current user.
+ *
+ * @return {object} The public profile object
+ */
+var user = exports.user = function user() {
+  return store.getAll(USER);
+};
+
+/**
+ * Wrapper that updates the public profile for the current user.
+ *
+ * @param {object} data The public profile object to be stored
+ */
+var updateUser = exports.updateUser = function updateUser(data) {
+  store.setAll(USER, data);
+};
 },{"./permissions":2,"./store":3,"./sync":4,"./util":5}],2:[function(require,module,exports){
 'use strict';
 
@@ -375,7 +395,7 @@ var setPermissions = exports.setPermissions = function setPermissions(origin) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.unregisterApp = exports.registerApp = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clear = exports.del = exports.get = exports.set = exports.user = exports.prepareResponse = exports.META = exports.USER = undefined;
+exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.unregisterApp = exports.registerApp = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clear = exports.del = exports.get = exports.set = exports.setUser = exports.user = exports.prepareResponse = exports.META = undefined;
 
 var _util = require('./util');
 
@@ -386,7 +406,6 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 // Default storage API
 var store = window.localStorage;
 
-var USER = exports.USER = '_user';
 var META = exports.META = '_meta';
 
 /**
@@ -455,7 +474,8 @@ var prepareResponse = exports.prepareResponse = function prepareResponse(origin,
 };
 
 /**
- * Returns the public profile of the user, including the picture and the name.
+ * Wrapper function that returns the public profile of the user.
+ *
  * @returns {object} Public profile data
  */
 var user = exports.user = function user() {
@@ -463,13 +483,22 @@ var user = exports.user = function user() {
 };
 
 /**
+ * Wrapper function that updates the public profile of the user.
+ * picture and the name.
+ *
+ * @param {object} data Public profile data
+ */
+var setUser = exports.setUser = function setUser(data) {
+  return setAll(USER, data);
+};
+
+/**
  * Sets a key to the specified value, based on the origin of the request.
  *
  * @param {string} origin The origin of the request
  * @param {object} params An object with key and value
- * @param {object} meta An object containing extra metadata
  */
-var set = exports.set = function set(origin, params, meta) {
+var set = exports.set = function set(origin, params) {
   // TODO throttle writing to once per second
   var data = getAll(origin);
   data[params.key] = params.value;
@@ -512,9 +541,8 @@ var get = exports.get = function get(origin, params) {
  *
  * @param {string} origin The origin of the request
  * @param {object} params An object with an array of keys
- * @param {object} meta An object containing extra metadata
  */
-var del = exports.del = function del(origin, params, meta) {
+var del = exports.del = function del(origin, params) {
   var data = getAll(origin);
   for (var i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]];
@@ -555,9 +583,8 @@ var getAll = exports.getAll = function getAll(origin) {
  *
  * @param   {string} origin The origin of the request
  * @param   {object} data The data payload
- * @param   {object} meta An object containing extra metadata
  */
-var setAll = exports.setAll = function setAll(origin, data, meta) {
+var setAll = exports.setAll = function setAll(origin, data) {
   // persist data in th
   store.setItem(origin, JSON.stringify(data));
 };
@@ -1039,6 +1066,26 @@ var isLocal = exports.isLocal = function isLocal(url) {
     }
   }
   return false;
+};
+
+var dataToImg = exports.dataToImg = function dataToImg(base64data) {
+  var data = base64data.split(',')[1];
+  // var binary = atob(data);
+  var binary = void 0;
+  if (base64data.split(',')[0].indexOf('base64') >= 0) {
+    binary = atob(data);
+  } else {
+    binary = decodeURI(data);
+  }
+
+  var buffer = new ArrayBuffer(binary.length);
+  var ia = new Uint8Array(buffer);
+  for (var i = 0; i < binary.length; i++) {
+    ia[i] = binary.charCodeAt(i);
+  }
+  var blob = new Blob([ia], { type: $scope.imageType });
+
+  return blob;
 };
 },{}]},{},[1])(1)
 });

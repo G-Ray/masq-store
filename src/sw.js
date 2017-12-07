@@ -1,7 +1,7 @@
 const staticCacheName = 'app-cache-v1.0.0'
 const filesToCache = [
   '.',
-  'dist/store.js',
+  'masqstore.min.js',
   'index.html'
 ]
 

@@ -4,7 +4,6 @@ import { isEmpty } from './util'
 // Default storage API
 const store = window.localStorage
 
-export const USER = '_user'
 export const META = '_meta'
 
 /**
@@ -72,7 +71,8 @@ export const prepareResponse = (origin, request, client) => {
 }
 
 /**
- * Returns the public profile of the user, including the picture and the name.
+ * Wrapper function that returns the public profile of the user.
+ *
  * @returns {object} Public profile data
  */
 export const user = () => {
@@ -80,13 +80,22 @@ export const user = () => {
 }
 
 /**
+ * Wrapper function that updates the public profile of the user.
+ * picture and the name.
+ *
+ * @param {object} data Public profile data
+ */
+export const setUser = (data) => {
+  return setAll(USER, data)
+}
+
+/**
  * Sets a key to the specified value, based on the origin of the request.
  *
  * @param {string} origin The origin of the request
  * @param {object} params An object with key and value
- * @param {object} meta An object containing extra metadata
  */
-export const set = (origin, params, meta) => {
+export const set = (origin, params) => {
     // TODO throttle writing to once per second
   let data = getAll(origin)
   data[params.key] = params.value
@@ -127,9 +136,8 @@ export const get = (origin, params) => {
  *
  * @param {string} origin The origin of the request
  * @param {object} params An object with an array of keys
- * @param {object} meta An object containing extra metadata
  */
-export const del = (origin, params, meta) => {
+export const del = (origin, params) => {
   let data = getAll(origin)
   for (let i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]]
@@ -170,9 +178,8 @@ export const getAll = (origin) => {
  *
  * @param   {string} origin The origin of the request
  * @param   {object} data The data payload
- * @param   {object} meta An object containing extra metadata
  */
-export const setAll = (origin, data, meta) => {
+export const setAll = (origin, data) => {
   // persist data in th
   store.setItem(origin, JSON.stringify(data))
 }
