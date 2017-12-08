@@ -285,7 +285,7 @@ export const registerApp = (url, perms = []) => {
  * @param   {string} origin The origin of the app
  */
 export const unregisterApp = (origin) => {
-  if (!origin) {
+  if (!origin || origin.length === 0) {
     return
   }
   store.clear(origin)

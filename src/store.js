@@ -148,12 +148,22 @@ export const del = (origin, params) => {
 }
 
 /**
- * Clears localStorage.
+ * Clears storage for a given key.
  *
  * @param {string} key The element to clear from localStorage
  */
 export const clear = (key) => {
   store.removeItem(key)
+}
+
+/**
+ * Clears all store items.
+ *
+ */
+export const clearAll = () => {
+  for (let i = 0; i < store.length; i++) {
+    store.removeItem(store.key(i))
+  }
 }
 
 /**

@@ -375,7 +375,7 @@ var setPermissions = exports.setPermissions = function setPermissions(origin) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clear = exports.del = exports.get = exports.set = exports.setUser = exports.user = exports.prepareResponse = exports.USER = exports.META = undefined;
+exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clearAll = exports.clear = exports.del = exports.get = exports.set = exports.setUser = exports.user = exports.prepareResponse = exports.USER = exports.META = undefined;
 
 var _util = require('./util');
 
@@ -533,12 +533,22 @@ var del = exports.del = function del(origin, params) {
 };
 
 /**
- * Clears localStorage.
+ * Clears storage for a given key.
  *
  * @param {string} key The element to clear from localStorage
  */
 var clear = exports.clear = function clear(key) {
   store.removeItem(key);
+};
+
+/**
+ * Clears all store items.
+ *
+ */
+var clearAll = exports.clearAll = function clearAll() {
+  for (var i = 0; i < store.length; i++) {
+    store.removeItem(store.key(i));
+  }
 };
 
 /**
