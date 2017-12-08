@@ -35,6 +35,8 @@ var util = _interopRequireWildcard(_util);
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
 var parameters = {};
+// Export API
+
 var wsClient = void 0;
 var devSyncServer = 'ws://localhost:8080';
 var clientId = '';
@@ -301,18 +303,19 @@ var registerApp = exports.registerApp = function registerApp(url) {
   var perms = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
 
   if (url && url.length > 0) {
+    perms = perms.length === 0 ? defaultPermissions : perms;
     var origin = util.getOrigin(url);
     if (!store.exists(origin)) {
-      store.setItem(origin, '{}');
+      store.setAll(origin, '{}');
 
       var meta = {
         origin: origin,
         permissions: perms,
         updated: 0
       };
-      var appMeta = store.META + '_' + origin;
-      store.setItem(appMeta, JSON.stringify(meta));
+      store.setMeta(origin, meta);
       // Trigger sync if this was a new app we just added
+      var appMeta = store.META + '_' + origin;
       sync.check(wsClient, clientId, [appMeta]);
       log('Registered app:', origin);
     }
@@ -325,7 +328,7 @@ var registerApp = exports.registerApp = function registerApp(url) {
  * @param   {string} origin The origin of the app
  */
 var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
-  if (!origin) {
+  if (!origin || origin.length === 0) {
     return;
   }
   store.clear(origin);
@@ -822,8 +825,6 @@ var updateHandler = function updateHandler(msg, client) {
   if (!meta || util.isEmpty(meta) || meta.updated >= msg.request.updated) {
     return;
   }
-
-  console.log('Syncing data for', msg, msg.origin);
 
   // Prepare response for the client app
   var response = store.prepareResponse(msg.origin, msg.request, client);

@@ -2,7 +2,7 @@ import * as sync from './sync'
 import * as store from './store'
 import * as acl from './permissions'
 import * as util from './util'
-
+// Export API
 export * from './store'
 
 let parameters = {}
@@ -261,18 +261,19 @@ const onlineStatus = (online, params) => {
  */
 export const registerApp = (url, perms = []) => {
   if (url && url.length > 0) {
+    perms = (perms.length === 0) ? defaultPermissions : perms
     const origin = util.getOrigin(url)
     if (!store.exists(origin)) {
-      store.setItem(origin, '{}')
+      store.setAll(origin, '{}')
 
       let meta = {
         origin: origin,
         permissions: perms,
         updated: 0
       }
-      const appMeta = `${store.META}_${origin}`
-      store.setItem(appMeta, JSON.stringify(meta))
+      store.setMeta(origin, meta)
       // Trigger sync if this was a new app we just added
+      const appMeta = `${store.META}_${origin}`
       sync.check(wsClient, clientId, [ appMeta ])
       log(`Registered app:`, origin)
     }
