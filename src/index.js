@@ -3,6 +3,8 @@ import * as store from './store'
 import * as acl from './permissions'
 import * as util from './util'
 
+export * from './store'
+
 let parameters = {}
 let wsClient
 const devSyncServer = 'ws://localhost:8080'
@@ -10,7 +12,6 @@ let clientId = ''
 const availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user']
 const defaultPermissions = availableMethods
 const wsTimeout = 3000 // Waiting (3s) for another attempt to reconnect to the WebSocket server
-const USER = '_user'
 
 const log = (...text) => {
   if (parameters.debug) {
@@ -253,21 +254,28 @@ const onlineStatus = (online, params) => {
 }
 
 /**
- * Register a given app based on its origin
+ * Register a given app based on its URL
  *
- * @param   {string} origin The origin of the app
- * @param   {string} permissions The list of permisssions for the app
+ * @param   {string} url The URL of the app
+ * @param   {string} perms The list of permisssions for the app
  */
-export const registerApp = (origin, permissions = []) => {
-  // Set default list of permissions to everything for now
-  if (permissions.length === 0) {
-    permissions = defaultPermissions
-  }
-  const appMeta = store.registerApp(origin, permissions)
-  if (appMeta) {
-    log(`Registered app:`, origin)
-    // Trigger sync if this was a new app we just added
-    sync.check(wsClient, clientId, [ appMeta ])
+export const registerApp = (url, perms = []) => {
+  if (url && url.length > 0) {
+    const origin = util.getOrigin(url)
+    if (!store.exists(origin)) {
+      store.setItem(origin, '{}')
+
+      let meta = {
+        origin: origin,
+        permissions: perms,
+        updated: 0
+      }
+      const appMeta = `${store.META}_${origin}`
+      store.setItem(appMeta, JSON.stringify(meta))
+      // Trigger sync if this was a new app we just added
+      sync.check(wsClient, clientId, [ appMeta ])
+      log(`Registered app:`, origin)
+    }
   }
 }
 
@@ -277,45 +285,9 @@ export const registerApp = (origin, permissions = []) => {
  * @param   {string} origin The origin of the app
  */
 export const unregisterApp = (origin) => {
-  store.unregisterApp(origin)
-}
-
-export const appList = () => {
-  return store.appList()
-}
-
-/**
- * Exports all the data in the store
- *
- * @return {object} The contents of the store as key:value pairs
- */
-export const exportJSON = () => {
-  return store.exportJSON()
-}
-
-/**
- * Imports all the data from a different store
- *
- * @param {object} data The contents of the store as a JSON object
- */
-export const importJSON = (data) => {
-  store.importJSON(data)
-}
-
-/**
- * Wrapper that returns the public profile for the current user.
- *
- * @return {object} The public profile object
- */
-export const user = () => {
-  return store.getAll(USER)
-}
-
-/**
- * Wrapper that updates the public profile for the current user.
- *
- * @param {object} data The public profile object to be stored
- */
-export const updateUser = (data) => {
-  store.setAll(USER, data)
+  if (!origin) {
+    return
+  }
+  store.clear(origin)
+  store.clear(`${store.META}_${origin}`)
 }

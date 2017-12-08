@@ -5,6 +5,7 @@ import { isEmpty } from './util'
 const store = window.localStorage
 
 export const META = '_meta'
+export const USER = '_user'
 
 /**
  * Returns a response object to the application requesting an action.
@@ -218,45 +219,6 @@ export const setMeta = (origin, data) => {
   store.setItem(`${META}_${origin}`, JSON.stringify(data))
 
   return updated
-}
-
-/**
- * Registers the data store for an app URL.
- *
- * @param   {string} url The URL of the app
- * @param   {array} perms The list of permissions for the app
- * @return  {string} The meta key for the app
- */
-export const registerApp = (url, perms = []) => {
-  if (url && url.length > 0) {
-    const origin = util.getOrigin(url)
-    if (!exists(origin)) {
-      store.setItem(origin, '{}')
-
-      let meta = {
-        origin: origin,
-        permissions: perms,
-        updated: 0
-      }
-      const appMeta = `${META}_${origin}`
-      store.setItem(appMeta, JSON.stringify(meta))
-      return appMeta
-    }
-  }
-  return ''
-}
-
-/**
- * Unregisters the data store for an app (origin).
- *
- * @param   {string} origin The origin of the app
- */
-export const unregisterApp = (origin) => {
-  if (!origin) {
-    return
-  }
-  clear(origin)
-  clear(`${META}_${origin}`)
 }
 
 /**

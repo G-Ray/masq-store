@@ -4,13 +4,23 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.updateUser = exports.user = exports.importJSON = exports.exportJSON = exports.appList = exports.unregisterApp = exports.registerApp = exports.init = undefined;
+exports.unregisterApp = exports.registerApp = exports.init = undefined;
+
+var _store = require('./store');
+
+Object.keys(_store).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function get() {
+      return _store[key];
+    }
+  });
+});
 
 var _sync = require('./sync');
 
 var sync = _interopRequireWildcard(_sync);
-
-var _store = require('./store');
 
 var store = _interopRequireWildcard(_store);
 
@@ -31,7 +41,6 @@ var clientId = '';
 var availableMethods = ['get', 'set', 'del', 'clear', 'getAll', 'setAll', 'user'];
 var defaultPermissions = availableMethods;
 var wsTimeout = 3000; // Waiting (3s) for another attempt to reconnect to the WebSocket server
-var USER = '_user';
 
 var log = function log() {
   for (var _len = arguments.length, text = Array(_len), _key = 0; _key < _len; _key++) {
@@ -283,23 +292,30 @@ var onlineStatus = function onlineStatus(online, params) {
 };
 
 /**
- * Register a given app based on its origin
+ * Register a given app based on its URL
  *
- * @param   {string} origin The origin of the app
- * @param   {string} permissions The list of permisssions for the app
+ * @param   {string} url The URL of the app
+ * @param   {string} perms The list of permisssions for the app
  */
-var registerApp = exports.registerApp = function registerApp(origin) {
-  var permissions = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+var registerApp = exports.registerApp = function registerApp(url) {
+  var perms = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
 
-  // Set default list of permissions to everything for now
-  if (permissions.length === 0) {
-    permissions = defaultPermissions;
-  }
-  var appMeta = store.registerApp(origin, permissions);
-  if (appMeta) {
-    log('Registered app:', origin);
-    // Trigger sync if this was a new app we just added
-    sync.check(wsClient, clientId, [appMeta]);
+  if (url && url.length > 0) {
+    var origin = util.getOrigin(url);
+    if (!store.exists(origin)) {
+      store.setItem(origin, '{}');
+
+      var meta = {
+        origin: origin,
+        permissions: perms,
+        updated: 0
+      };
+      var appMeta = store.META + '_' + origin;
+      store.setItem(appMeta, JSON.stringify(meta));
+      // Trigger sync if this was a new app we just added
+      sync.check(wsClient, clientId, [appMeta]);
+      log('Registered app:', origin);
+    }
   }
 };
 
@@ -309,47 +325,11 @@ var registerApp = exports.registerApp = function registerApp(origin) {
  * @param   {string} origin The origin of the app
  */
 var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
-  store.unregisterApp(origin);
-};
-
-var appList = exports.appList = function appList() {
-  return store.appList();
-};
-
-/**
- * Exports all the data in the store
- *
- * @return {object} The contents of the store as key:value pairs
- */
-var exportJSON = exports.exportJSON = function exportJSON() {
-  return store.exportJSON();
-};
-
-/**
- * Imports all the data from a different store
- *
- * @param {object} data The contents of the store as a JSON object
- */
-var importJSON = exports.importJSON = function importJSON(data) {
-  store.importJSON(data);
-};
-
-/**
- * Wrapper that returns the public profile for the current user.
- *
- * @return {object} The public profile object
- */
-var user = exports.user = function user() {
-  return store.getAll(USER);
-};
-
-/**
- * Wrapper that updates the public profile for the current user.
- *
- * @param {object} data The public profile object to be stored
- */
-var updateUser = exports.updateUser = function updateUser(data) {
-  store.setAll(USER, data);
+  if (!origin) {
+    return;
+  }
+  store.clear(origin);
+  store.clear(store.META + '_' + origin);
 };
 },{"./permissions":2,"./store":3,"./sync":4,"./util":5}],2:[function(require,module,exports){
 'use strict';
@@ -395,7 +375,7 @@ var setPermissions = exports.setPermissions = function setPermissions(origin) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.unregisterApp = exports.registerApp = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clear = exports.del = exports.get = exports.set = exports.setUser = exports.user = exports.prepareResponse = exports.META = undefined;
+exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clear = exports.del = exports.get = exports.set = exports.setUser = exports.user = exports.prepareResponse = exports.USER = exports.META = undefined;
 
 var _util = require('./util');
 
@@ -407,6 +387,7 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 var store = window.localStorage;
 
 var META = exports.META = '_meta';
+var USER = exports.USER = '_user';
 
 /**
  * Returns a response object to the application requesting an action.
@@ -623,47 +604,6 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
   store.setItem(META + '_' + origin, JSON.stringify(data));
 
   return updated;
-};
-
-/**
- * Registers the data store for an app URL.
- *
- * @param   {string} url The URL of the app
- * @param   {array} perms The list of permissions for the app
- * @return  {string} The meta key for the app
- */
-var registerApp = exports.registerApp = function registerApp(url) {
-  var perms = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
-
-  if (url && url.length > 0) {
-    var origin = util.getOrigin(url);
-    if (!exists(origin)) {
-      store.setItem(origin, '{}');
-
-      var meta = {
-        origin: origin,
-        permissions: perms,
-        updated: 0
-      };
-      var appMeta = META + '_' + origin;
-      store.setItem(appMeta, JSON.stringify(meta));
-      return appMeta;
-    }
-  }
-  return '';
-};
-
-/**
- * Unregisters the data store for an app (origin).
- *
- * @param   {string} origin The origin of the app
- */
-var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
-  if (!origin) {
-    return;
-  }
-  clear(origin);
-  clear(META + '_' + origin);
 };
 
 /**
