@@ -91,8 +91,6 @@ const updateHandler = (msg, client) => {
     return
   }
 
-  console.log('Syncing data for', msg, msg.origin)
-
   // Prepare response for the client app
   let response = store.prepareResponse(msg.origin, msg.request, client)
 
