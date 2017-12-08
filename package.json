@@ -1,6 +1,6 @@
 {
   "name": "masq-store",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Data store for Masq",
   "main": "src/index.js",
   "scripts": {
