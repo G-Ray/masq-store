@@ -589,6 +589,12 @@ var getMeta = exports.getMeta = function getMeta(origin) {
  * @return  {int} The timestamp of the update operation
  */
 var setMeta = exports.setMeta = function setMeta(origin, data) {
+  if (!origin) {
+    console.log('Missing origin when trying to set meta data.');
+    return;
+  }
+  origin = origin === META ? META : META + '_' + origin;
+
   // Use the timestamp as revision number for now
   var updated = data.updated ? data.updated : util.now();
 
@@ -601,7 +607,7 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
   if (!data.updated) {
     data.updated = updated;
   }
-  store.setItem(META + '_' + origin, JSON.stringify(data));
+  store.setItem(origin, JSON.stringify(data));
 
   return updated;
 };

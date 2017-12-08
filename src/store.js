@@ -204,6 +204,12 @@ export const getMeta = (origin) => {
  * @return  {int} The timestamp of the update operation
  */
 export const setMeta = (origin, data) => {
+  if (!origin) {
+    console.log('Missing origin when trying to set meta data.')
+    return
+  }
+  origin = (origin === META) ? META : `${META}_${origin}`
+
   // Use the timestamp as revision number for now
   const updated = (data.updated) ? data.updated : util.now()
 
@@ -216,7 +222,7 @@ export const setMeta = (origin, data) => {
   if (!data.updated) {
     data.updated = updated
   }
-  store.setItem(`${META}_${origin}`, JSON.stringify(data))
+  store.setItem(origin, JSON.stringify(data))
 
   return updated
 }
