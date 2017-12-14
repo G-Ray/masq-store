@@ -86,7 +86,7 @@ export const user = () => {
  *
  * @param {object} data Public profile data
  */
-export const setUser = (data) => {
+export const updateUser = (data) => {
   return setAll(USER, data)
 }
 
@@ -218,6 +218,10 @@ export const setMeta = (origin, data) => {
     console.log('Missing origin when trying to set meta data.')
     return
   }
+  if (!data.origin) {
+    data.origin = origin
+  }
+
   origin = (origin === META) ? META : `${META}_${origin}`
 
   // Use the timestamp as revision number for now
