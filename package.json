@@ -8,7 +8,7 @@
     "build": "./node_modules/.bin/babel ./src --experimental -d ./dist && browserify ./dist/index.js --standalone MasqStore > dist/masqstore.js && npm run clean",
     "minify": "npm run build && uglifyjs ./dist/masqstore.js -o ./dist/masqstore.min.js --compress --mangle -- ",
     "dist": "npm run minify",
-    "start": "npm run dist && http-server -p 8081."
+    "start": "npm run dist && http-server -p 8081 dist/."
   },
   "author": {
     "name": "Andrei Sambra",

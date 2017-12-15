@@ -87,7 +87,7 @@ const updateHandler = (msg, client) => {
     return
   }
 
-  if (!meta || util.isEmpty(meta) || meta.updated >= msg.request.updated) {
+  if (!meta || util.isEmpty(meta) || meta.updated >= msg.request.updated || !meta.sync) {
     return
   }
 

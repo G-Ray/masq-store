@@ -211,7 +211,7 @@ export const getMeta = (origin) => {
  *
  * @param   {string} origin The origin of the request
  * @param   {object} data Extra metadata
- * @return  {int} The timestamp of the update operation
+ * @return  {object} The updated meta object
  */
 export const setMeta = (origin, data) => {
   if (!origin) {
@@ -225,7 +225,7 @@ export const setMeta = (origin, data) => {
   origin = (origin === META) ? META : `${META}_${origin}`
 
   // Use the timestamp as revision number for now
-  const updated = (data.updated) ? data.updated : util.now()
+  const updated = (data.updated !== undefined) ? data.updated : util.now()
 
   // Update the global store meta
   let meta = getMeta()
@@ -238,7 +238,7 @@ export const setMeta = (origin, data) => {
   }
   store.setItem(origin, JSON.stringify(data))
 
-  return updated
+  return data
 }
 
 /**

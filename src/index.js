@@ -257,25 +257,24 @@ const onlineStatus = (online, params) => {
  * Register a given app based on its URL
  *
  * @param   {string} url The URL of the app
- * @param   {string} perms The list of permisssions for the app
+ * @param   {object} meta An object containing additional meta data for the app
  */
-export const registerApp = (url, perms = []) => {
+export const registerApp = (url, meta = {}) => {
   if (url && url.length > 0) {
-    perms = (perms.length === 0) ? defaultPermissions : perms
     const origin = util.getOrigin(url)
     if (!store.exists(origin)) {
       store.setAll(origin, '{}')
 
-      let meta = {
-        origin: origin,
-        permissions: perms,
-        updated: 0
-      }
-      store.setMeta(origin, meta)
+      meta.origin = origin
+      meta.permissions = meta.permissions || defaultPermissions
+      meta.updated = 0
+
+      const updated = store.setMeta(origin, meta)
       // Trigger sync if this was a new app we just added
       const appMeta = `${store.META}_${origin}`
       sync.check(wsClient, clientId, [ appMeta ])
       log(`Registered app:`, origin)
+      return updated
     }
   }
 }

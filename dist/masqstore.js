@@ -297,27 +297,26 @@ var onlineStatus = function onlineStatus(online, params) {
  * Register a given app based on its URL
  *
  * @param   {string} url The URL of the app
- * @param   {string} perms The list of permisssions for the app
+ * @param   {object} meta An object containing additional meta data for the app
  */
 var registerApp = exports.registerApp = function registerApp(url) {
-  var perms = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+  var meta = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
 
   if (url && url.length > 0) {
-    perms = perms.length === 0 ? defaultPermissions : perms;
     var origin = util.getOrigin(url);
     if (!store.exists(origin)) {
       store.setAll(origin, '{}');
 
-      var meta = {
-        origin: origin,
-        permissions: perms,
-        updated: 0
-      };
-      store.setMeta(origin, meta);
+      meta.origin = origin;
+      meta.permissions = meta.permissions || defaultPermissions;
+      meta.updated = 0;
+
+      var updated = store.setMeta(origin, meta);
       // Trigger sync if this was a new app we just added
       var appMeta = store.META + '_' + origin;
       sync.check(wsClient, clientId, [appMeta]);
       log('Registered app:', origin);
+      return updated;
     }
   }
 };
@@ -378,7 +377,7 @@ var setPermissions = exports.setPermissions = function setPermissions(origin) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clearAll = exports.clear = exports.del = exports.get = exports.set = exports.setUser = exports.user = exports.prepareResponse = exports.USER = exports.META = undefined;
+exports.available = exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clearAll = exports.clear = exports.del = exports.get = exports.set = exports.updateUser = exports.user = exports.prepareResponse = exports.USER = exports.META = undefined;
 
 var _util = require('./util');
 
@@ -472,7 +471,7 @@ var user = exports.user = function user() {
  *
  * @param {object} data Public profile data
  */
-var setUser = exports.setUser = function setUser(data) {
+var updateUser = exports.updateUser = function updateUser(data) {
   return setAll(USER, data);
 };
 
@@ -599,17 +598,21 @@ var getMeta = exports.getMeta = function getMeta(origin) {
  *
  * @param   {string} origin The origin of the request
  * @param   {object} data Extra metadata
- * @return  {int} The timestamp of the update operation
+ * @return  {object} The updated meta object
  */
 var setMeta = exports.setMeta = function setMeta(origin, data) {
   if (!origin) {
     console.log('Missing origin when trying to set meta data.');
     return;
   }
+  if (!data.origin) {
+    data.origin = origin;
+  }
+
   origin = origin === META ? META : META + '_' + origin;
 
   // Use the timestamp as revision number for now
-  var updated = data.updated ? data.updated : util.now();
+  var updated = data.updated !== undefined ? data.updated : util.now();
 
   // Update the global store meta
   var meta = getMeta();
@@ -622,7 +625,7 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
   }
   store.setItem(origin, JSON.stringify(data));
 
-  return updated;
+  return data;
 };
 
 /**
@@ -822,7 +825,7 @@ var updateHandler = function updateHandler(msg, client) {
     return;
   }
 
-  if (!meta || util.isEmpty(meta) || meta.updated >= msg.request.updated) {
+  if (!meta || util.isEmpty(meta) || meta.updated >= msg.request.updated || !meta.sync) {
     return;
   }
 
