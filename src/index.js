@@ -254,6 +254,18 @@ const onlineStatus = (online, params) => {
 }
 
 /**
+ * Force sync a given app
+ *
+ * @param   {string} url The URL of the app
+ * @param   {object} meta An object containing additional meta data for the app
+ */
+export const syncApp = (url) => {
+  if (url && url.length > 0) {
+    sync.checkOne(wsClient, clientId, url)
+  }
+}
+
+/**
  * Register a given app based on its URL
  *
  * @param   {string} url The URL of the app

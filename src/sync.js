@@ -98,11 +98,11 @@ const updateHandler = (msg, client) => {
   response.client = client
   response.sync = true
 
-  if (window.self !== window.top) {
+  // if (window.self !== window.top) {
     // postMessage requires that the target origin be set to "*" for "file://"
-    const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
-    window.parent.postMessage(response, targetOrigin)
-  }
+  const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
+  window.parent.postMessage(response, targetOrigin)
+  // }
 }
 
 /**
@@ -154,14 +154,37 @@ export const check = (ws, client = '', list) => {
 
   for (let i = 0; i < appList.length; i++) {
     const meta = store.getAll(appList[i])
-    let req = {
-      type: 'check',
-      client: client,
-      origin: meta.origin,
-      updated: meta.updated
+    if (meta.sync) {
+      let req = {
+        type: 'check',
+        client: client,
+        origin: meta.origin,
+        updated: meta.updated
+      }
+      ws.send(JSON.stringify(req))
     }
-    ws.send(JSON.stringify(req))
   }
+}
+
+/**
+ * Check if the other devices have an update for a given app.
+ *
+ * @param   {object} ws The WebSocket client
+ * @param   {string} client The local client ID
+ * @param   {string} origin The app origin to check
+ */
+export const checkOne = (ws, client = '', origin) => {
+  if (!ws) {
+    return
+  }
+  const meta = store.getMeta(origin)
+  let req = {
+    type: 'check',
+    client: client,
+    origin: meta.origin,
+    updated: meta.updated
+  }
+  ws.send(JSON.stringify(req))
 }
 
 /**

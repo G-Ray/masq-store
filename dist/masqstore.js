@@ -4,7 +4,7 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.unregisterApp = exports.registerApp = exports.init = undefined;
+exports.unregisterApp = exports.registerApp = exports.syncApp = exports.init = undefined;
 
 var _store = require('./store');
 
@@ -290,6 +290,18 @@ var onlineStatus = function onlineStatus(online, params) {
       wsClient.close();
     }
     log('Working offline.');
+  }
+};
+
+/**
+ * Force sync a given app
+ *
+ * @param   {string} url The URL of the app
+ * @param   {object} meta An object containing additional meta data for the app
+ */
+var syncApp = exports.syncApp = function syncApp(url) {
+  if (url && url.length > 0) {
+    sync.checkOne(wsClient, clientId, url);
   }
 };
 
@@ -726,7 +738,7 @@ var available = exports.available = function available() {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.check = exports.push = exports.handleMessage = undefined;
+exports.checkOne = exports.check = exports.push = exports.handleMessage = undefined;
 exports.initWSClient = initWSClient;
 
 var _util = require('./util');
@@ -836,11 +848,11 @@ var updateHandler = function updateHandler(msg, client) {
   response.client = client;
   response.sync = true;
 
-  if (window.self !== window.top) {
-    // postMessage requires that the target origin be set to "*" for "file://"
-    var targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
-    window.parent.postMessage(response, targetOrigin);
-  }
+  // if (window.self !== window.top) {
+  // postMessage requires that the target origin be set to "*" for "file://"
+  var targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
+  window.parent.postMessage(response, targetOrigin);
+  // }
 };
 
 /**
@@ -897,14 +909,40 @@ var check = exports.check = function check(ws) {
 
   for (var i = 0; i < appList.length; i++) {
     var meta = store.getAll(appList[i]);
-    var req = {
-      type: 'check',
-      client: client,
-      origin: meta.origin,
-      updated: meta.updated
-    };
-    ws.send(JSON.stringify(req));
+    if (meta.sync) {
+      var req = {
+        type: 'check',
+        client: client,
+        origin: meta.origin,
+        updated: meta.updated
+      };
+      ws.send(JSON.stringify(req));
+    }
   }
+};
+
+/**
+ * Check if the other devices have an update for a given app.
+ *
+ * @param   {object} ws The WebSocket client
+ * @param   {string} client The local client ID
+ * @param   {string} origin The app origin to check
+ */
+var checkOne = exports.checkOne = function checkOne(ws) {
+  var client = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  var origin = arguments[2];
+
+  if (!ws) {
+    return;
+  }
+  var meta = store.getMeta(origin);
+  var req = {
+    type: 'check',
+    client: client,
+    origin: meta.origin,
+    updated: meta.updated
+  };
+  ws.send(JSON.stringify(req));
 };
 
 /**
