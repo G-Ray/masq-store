@@ -319,7 +319,7 @@ var registerApp = exports.registerApp = function registerApp(url) {
   if (url && url.length > 0) {
     var origin = util.getOrigin(url);
     if (!store.exists(origin)) {
-      store.setAll(origin, '{}');
+      store.setAll(origin, {});
 
       meta.origin = origin;
       meta.permissions = meta.permissions || defaultPermissions;
