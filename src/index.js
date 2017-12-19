@@ -277,7 +277,7 @@ export const registerApp = (url, meta = {}) => {
   if (url && url.length > 0) {
     const origin = util.getOrigin(url)
     if (!store.exists(origin)) {
-      store.setAll(origin, '{}')
+      store.setAll(origin, {})
 
       meta.origin = origin
       meta.permissions = meta.permissions || defaultPermissions
