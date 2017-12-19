@@ -228,9 +228,11 @@ export const setMeta = (origin, data) => {
   const updated = (data.updated !== undefined) ? data.updated : util.now()
 
   // Update the global store meta
-  let meta = getMeta()
-  meta.updated = updated
-  store.setItem(META, JSON.stringify(meta))
+  if (updated > 0) {
+    let meta = getMeta()
+    meta.updated = updated
+    store.setItem(META, JSON.stringify(meta))
+  }
 
   // Update the meta data for the given origin
   if (!data.updated) {
