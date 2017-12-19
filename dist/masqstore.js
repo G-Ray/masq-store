@@ -172,7 +172,9 @@ var initApp = function initApp(origin, params) {
   // permissionList = params.permissions || []
 
   // Force register the app for now (until we have proper UI)
-  registerApp(origin);
+  if (parameters.autoregister) {
+    registerApp(origin);
+  }
 
   window.parent.postMessage({ 'cross-storage': 'ready' }, origin);
 };
@@ -627,9 +629,11 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
   var updated = data.updated !== undefined ? data.updated : util.now();
 
   // Update the global store meta
-  var meta = getMeta();
-  meta.updated = updated;
-  store.setItem(META, JSON.stringify(meta));
+  if (updated > 0) {
+    var meta = getMeta();
+    meta.updated = updated;
+    store.setItem(META, JSON.stringify(meta));
+  }
 
   // Update the meta data for the given origin
   if (!data.updated) {
