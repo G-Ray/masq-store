@@ -135,7 +135,9 @@ const initApp = (origin, params) => {
   // permissionList = params.permissions || []
 
   // Force register the app for now (until we have proper UI)
-  registerApp(origin)
+  if (parameters.autoregister) {
+    registerApp(origin)
+  }
 
   window.parent.postMessage({'cross-storage': 'ready'}, origin)
 }
