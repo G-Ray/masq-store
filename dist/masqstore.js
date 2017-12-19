@@ -238,11 +238,15 @@ var listener = function listener(message) {
   } else if (!isPermitted(origin, request.method)) {
     response.error = 'Invalid ' + request.method + ' permissions for ' + origin;
   } else {
+    request.updated = util.now();
     response = store.prepareResponse(origin, request, clientId);
-    // Also send the changes to other devices
+    // Also send the changes to other devices if sync is active
     if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
-      request.updated = response.result;
-      sync.push(wsClient, origin, request);
+      var meta = store.getMeta(origin);
+      if (meta.sync) {
+        request.updated = meta.updated;
+        sync.push(wsClient, origin, request);
+      }
     }
   }
 
@@ -323,7 +327,6 @@ var registerApp = exports.registerApp = function registerApp(url) {
 
       meta.origin = origin;
       meta.permissions = meta.permissions || defaultPermissions;
-      meta.updated = 0;
 
       var updated = store.setMeta(origin, meta);
       // Trigger sync if this was a new app we just added
@@ -625,20 +628,13 @@ var setMeta = exports.setMeta = function setMeta(origin, data) {
 
   origin = origin === META ? META : META + '_' + origin;
 
-  // Use the timestamp as revision number for now
-  var updated = data.updated !== undefined ? data.updated : util.now();
-
-  // Update the global store meta
-  if (updated > 0) {
-    var meta = getMeta();
-    meta.updated = updated;
-    store.setItem(META, JSON.stringify(meta));
+  // Update the root store meta
+  if (data.updated) {
+    var rootMeta = getMeta();
+    rootMeta.updated = data.updated;
+    store.setItem(META, JSON.stringify(rootMeta));
   }
 
-  // Update the meta data for the given origin
-  if (!data.updated) {
-    data.updated = updated;
-  }
   store.setItem(origin, JSON.stringify(data));
 
   return data;
@@ -852,11 +848,13 @@ var updateHandler = function updateHandler(msg, client) {
   response.client = client;
   response.sync = true;
 
-  // if (window.self !== window.top) {
   // postMessage requires that the target origin be set to "*" for "file://"
   var targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
-  window.parent.postMessage(response, targetOrigin);
-  // }
+  console.log('Target:', targetOrigin, 'Parent:', window.parent.origin);
+  if (targetOrigin === window.parent.origin) {
+    // if (window.self !== window.top) {
+    window.parent.postMessage(response, targetOrigin);
+  }
 };
 
 /**
@@ -913,6 +911,7 @@ var check = exports.check = function check(ws) {
 
   for (var i = 0; i < appList.length; i++) {
     var meta = store.getAll(appList[i]);
+    meta.updated = meta.updated || 0;
     if (meta.sync) {
       var req = {
         type: 'check',
@@ -940,6 +939,7 @@ var checkOne = exports.checkOne = function checkOne(ws) {
     return;
   }
   var meta = store.getMeta(origin);
+  meta.updated = meta.updated || 0;
   var req = {
     type: 'check',
     client: client,

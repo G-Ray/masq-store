@@ -98,11 +98,13 @@ const updateHandler = (msg, client) => {
   response.client = client
   response.sync = true
 
-  // if (window.self !== window.top) {
-    // postMessage requires that the target origin be set to "*" for "file://"
+  // postMessage requires that the target origin be set to "*" for "file://"
   const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
-  window.parent.postMessage(response, targetOrigin)
-  // }
+  console.log('Target:', targetOrigin, 'Parent:', window.parent.origin)
+  if (targetOrigin === window.parent.origin) {
+  // if (window.self !== window.top) {
+    window.parent.postMessage(response, targetOrigin)
+  }
 }
 
 /**
@@ -154,6 +156,7 @@ export const check = (ws, client = '', list) => {
 
   for (let i = 0; i < appList.length; i++) {
     const meta = store.getAll(appList[i])
+    meta.updated = meta.updated || 0
     if (meta.sync) {
       let req = {
         type: 'check',
@@ -178,6 +181,7 @@ export const checkOne = (ws, client = '', origin) => {
     return
   }
   const meta = store.getMeta(origin)
+  meta.updated = meta.updated || 0
   let req = {
     type: 'check',
     client: client,

@@ -224,20 +224,13 @@ export const setMeta = (origin, data) => {
 
   origin = (origin === META) ? META : `${META}_${origin}`
 
-  // Use the timestamp as revision number for now
-  const updated = (data.updated !== undefined) ? data.updated : util.now()
-
-  // Update the global store meta
-  if (updated > 0) {
-    let meta = getMeta()
-    meta.updated = updated
-    store.setItem(META, JSON.stringify(meta))
+  // Update the root store meta
+  if (data.updated) {
+    let rootMeta = getMeta()
+    rootMeta.updated = data.updated
+    store.setItem(META, JSON.stringify(rootMeta))
   }
 
-  // Update the meta data for the given origin
-  if (!data.updated) {
-    data.updated = updated
-  }
   store.setItem(origin, JSON.stringify(data))
 
   return data

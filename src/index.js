@@ -198,11 +198,15 @@ const listener = (message) => {
   } else if (!isPermitted(origin, request.method)) {
     response.error = `Invalid ${request.method} permissions for ${origin}`
   } else {
+    request.updated = util.now()
     response = store.prepareResponse(origin, request, clientId)
-    // Also send the changes to other devices
+    // Also send the changes to other devices if sync is active
     if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
-      request.updated = response.result
-      sync.push(wsClient, origin, request)
+      var meta = store.getMeta(origin)
+      if (meta.sync) {
+        request.updated = meta.updated
+        sync.push(wsClient, origin, request)
+      }
     }
   }
 
@@ -281,7 +285,6 @@ export const registerApp = (url, meta = {}) => {
 
       meta.origin = origin
       meta.permissions = meta.permissions || defaultPermissions
-      meta.updated = 0
 
       const updated = store.setMeta(origin, meta)
       // Trigger sync if this was a new app we just added
