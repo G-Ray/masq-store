@@ -330,8 +330,7 @@ var registerApp = exports.registerApp = function registerApp(url) {
 
       var updated = store.setMeta(origin, meta);
       // Trigger sync if this was a new app we just added
-      var appMeta = store.META + '_' + origin;
-      sync.check(wsClient, clientId, [appMeta]);
+      sync.checkOne(wsClient, clientId, origin);
       log('Registered app:', origin);
       return updated;
     }
@@ -836,24 +835,22 @@ var updateHandler = function updateHandler(msg, client) {
   if (inTheFuture(msg.request.updated)) {
     return;
   }
-
-  if (!meta || util.isEmpty(meta) || meta.updated >= msg.request.updated || !meta.sync) {
+  if (util.isEmpty(meta) || meta.updated > msg.request.updated || !meta.sync) {
     return;
   }
 
   // Prepare response for the client app
-  var response = store.prepareResponse(msg.origin, msg.request, client);
+  store.prepareResponse(msg.origin, msg.request, client);
 
   // Force the local client ID
-  response.client = client;
-  response.sync = true;
+  msg.client = client;
+  msg.sync = true;
 
   // postMessage requires that the target origin be set to "*" for "file://"
   var targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
-  console.log('Target:', targetOrigin, 'Parent:', window.parent.origin);
-  if (targetOrigin === window.parent.origin) {
-    // if (window.self !== window.top) {
-    window.parent.postMessage(response, targetOrigin);
+  // only need to notify parent if running in an iframe
+  if (window.self !== window.top) {
+    window.parent.postMessage(msg, targetOrigin);
   }
 };
 
@@ -868,12 +865,12 @@ var checkHandler = function checkHandler(msg, ws) {
 
   // Check if we have local data that was changed after the specified data
   // but ignore request if the received timestamp comes from the future
-  if (msg.updated !== undefined && !inTheFuture(msg.updated)) {
+  if (store.exists(msg.origin) && msg.updated !== undefined && !inTheFuture(msg.updated)) {
     var meta = store.getMeta(msg.origin);
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
       check(ws, client);
-    } else {
+    } else if (meta.updated > 0) {
       // We have fresh data and we need to send it.
       var resp = {
         type: 'sync',

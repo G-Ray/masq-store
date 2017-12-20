@@ -288,8 +288,7 @@ export const registerApp = (url, meta = {}) => {
 
       const updated = store.setMeta(origin, meta)
       // Trigger sync if this was a new app we just added
-      const appMeta = `${store.META}_${origin}`
-      sync.check(wsClient, clientId, [ appMeta ])
+      sync.checkOne(wsClient, clientId, origin)
       log(`Registered app:`, origin)
       return updated
     }
