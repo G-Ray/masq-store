@@ -97,6 +97,7 @@ const updateHandler = (msg, client) => {
   // Force the local client ID
   response.client = client
   response.sync = true
+  console.log(response)
 
   // postMessage requires that the target origin be set to "*" for "file://"
   const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
