@@ -755,6 +755,7 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 function initWSClient(server, room) {
   return new Promise(function (resolve, reject) {
     room = room || 'foo';
+    server = server || 'wss://sync-beta.qwantresearch.com:8080';
     // const wsUrl = url.resolve(server, room)
     var wsUrl = window.URL !== undefined ? new window.URL(room, server) : server + room;
 
