@@ -195,8 +195,8 @@ const listener = (message) => {
   if (!request.method) {
     return
   // Disable permission check for now since we do not share data between origins
-  } else if (!isPermitted(origin, request.method)) {
-    response.error = `Invalid ${request.method} permissions for ${origin}`
+  // } else if (!isPermitted(origin, request.method)) {
+    // response.error = `Invalid ${request.method} permissions for ${origin}`
   } else {
     request.updated = util.now()
     response = store.prepareResponse(origin, request, clientId)
