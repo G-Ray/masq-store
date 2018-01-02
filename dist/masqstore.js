@@ -80,12 +80,15 @@ var init = exports.init = function init() {
 
   parameters = params;
 
+  log('Initializing Masq Store...');
+
   // Return if storage api is unavailable
   if (!store.available()) {
     try {
       window.parent.postMessage({ 'cross-storage': 'unavailable' }, '*');
       return;
     } catch (e) {
+      log(e);
       return e;
     }
   }
