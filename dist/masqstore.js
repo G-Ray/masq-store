@@ -872,11 +872,10 @@ var checkHandler = function checkHandler(msg, ws) {
   // but ignore request if the received timestamp comes from the future
   if (store.exists(msg.origin) && msg.updated !== undefined && !inTheFuture(msg.updated)) {
     var meta = store.getMeta(msg.origin);
-    console.log('Comparing update timestamps', msg.updated, meta.updated);
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
       check(ws, client);
-    } else if (msg.updated < meta.updated) {
+    } else if (meta.updated > 0 && msg.updated < meta.updated) {
       // We have fresh data and we need to send it.
       var resp = {
         type: 'sync',
