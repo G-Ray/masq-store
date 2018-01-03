@@ -757,9 +757,10 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 // import * as url from 'url'
 function initWSClient(server, room) {
   return new Promise(function (resolve, reject) {
-    room = room || 'foo';
-    server = server || 'wss://sync-beta.qwantresearch.com:8080';
     // const wsUrl = url.resolve(server, room)
+    if (!server || !room) {
+      return reject(new Error('No WebSocket server or room provided.'));
+    }
     var wsUrl = window.URL !== undefined ? new window.URL(room, server) : server + room;
 
     var ws = new window.WebSocket(wsUrl);
@@ -776,7 +777,7 @@ function initWSClient(server, room) {
     };
 
     ws.onerror = function (event) {
-      var err = 'Could not connect to Sync server at ' + wsUrl;
+      var err = new Error('Could not connect to Sync server at ' + wsUrl);
       // console.log(err)
       return reject(err);
     };
