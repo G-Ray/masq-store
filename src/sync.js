@@ -121,7 +121,7 @@ const checkHandler = (msg, ws, client = '') => {
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
       check(ws, client)
-    } else if (meta.updated > 0) {
+    } else if (msg.updated < meta.updated) {
       // We have fresh data and we need to send it.
       const resp = {
         type: 'sync',
