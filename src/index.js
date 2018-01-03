@@ -1,7 +1,9 @@
 import * as sync from './sync'
 import * as store from './store'
 import * as acl from './permissions'
+import * as crypto from './crypto'
 import * as util from './util'
+import { decrypt } from './crypto';
 // Export API
 export * from './store'
 
@@ -100,6 +102,9 @@ const initWs = (params) => {
   log('Initializing WebSocket with params:', params)
   sync.initWSClient(params.syncserver, params.syncroom).then((ws) => {
     wsClient = ws
+    if (params.cryptoKey) {
+      wsClient.cryptoKey = crypto.hexStringToBuffer(params.cryptoKey)
+    }
 
     // Check if we need to sync the local store
     sync.check(wsClient, clientId)
@@ -107,7 +112,20 @@ const initWs = (params) => {
     wsClient.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
-        sync.handleMessage(wsClient, msg, clientId)
+        if (msg.ciphertext && wsClient.cryptoKey) {
+          // decrypt message first
+          crypto.decrypt(wsClient.cryptoKey, msg).then(decrypted => {
+            try {
+              sync.handleMessage(wsClient, JSON.parse(decrypted), clientId)
+            } catch (err) {
+              console.log(err)
+            }
+          }).catch(err => {
+            console.log(err)
+          })
+        } else {
+          sync.handleMessage(wsClient, msg, clientId)
+        }
       } catch (err) {
         log(err)
       }

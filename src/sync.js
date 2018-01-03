@@ -2,6 +2,7 @@
 // import * as url from 'url'
 import * as util from './util'
 import * as store from './store'
+import * as crypto from './crypto'
 
 export function initWSClient (server, room) {
   return new Promise((resolve, reject) => {
@@ -69,7 +70,7 @@ export const push = (ws, origin, request) => {
     request: request
   }
   if (ws.readyState === ws.OPEN) {
-    ws.send(JSON.stringify(req))
+    send(ws, req)
   }
 }
 
@@ -133,7 +134,7 @@ const checkHandler = (msg, ws, client = '') => {
           params: store.getAll(msg.origin)
         }
       }
-      ws.send(JSON.stringify(resp))
+      send(ws, resp)
     }
   }
 }
@@ -164,7 +165,7 @@ export const check = (ws, client = '', list) => {
         origin: meta.origin,
         updated: meta.updated
       }
-      ws.send(JSON.stringify(req))
+      
     }
   }
 }
@@ -188,9 +189,24 @@ export const checkOne = (ws, client = '', origin) => {
     origin: meta.origin,
     updated: meta.updated
   }
-  ws.send(JSON.stringify(req))
+  send(ws, req)
 }
 
+/**
+ * Send a message using a WebSocket session
+ *
+ * @param   {object} ws The WebSocket client
+ * @param   {object} data The data to be sent
+ */
+const send = (ws, data) => {
+  if (ws.cryptoKey) {
+    crypto.encrypt(ws.cryptoKey, JSON.stringify(data), '').then(encrypted => {
+      ws.send(JSON.stringify(encrypted))
+    })
+    return
+  }
+  ws.send(JSON.stringify(data))
+}
 /**
  * Check if a timestamp is in the future w.r.t. current local time.
  *

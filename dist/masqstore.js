@@ -4,6 +4,249 @@
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+/**
+ * Generate a PBKDF2 derived key based on user given passPhrase
+ *
+ * @param {string} passPhrase The passphrase that is used to derive the key
+ * @returns {Promise}   A promise that contains the derived key
+ */
+var deriveKey = exports.deriveKey = function deriveKey() {
+  var passPhrase = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+  var keyLenth = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 18;
+  var iterations = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 10000;
+
+  if (passPhrase.length === 0) {
+    passPhrase = randomString(keyLenth);
+  }
+
+  // TODO: set this to a real value later
+  var salt = new Uint8Array('');
+
+  return crypto.subtle.importKey('raw', toArray(passPhrase), 'PBKDF2', false, ['deriveBits', 'deriveKey']).then(function (baseKey) {
+    return crypto.subtle.deriveBits({
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: iterations,
+      hash: 'sha-256'
+    }, baseKey, 128);
+  }, logFail).then(function (derivedKey) {
+    return new Uint8Array(derivedKey);
+  }, logFail);
+};
+
+// Generate a random string using the Webwindow API instead of Math.random
+// (insecure)
+var randomString = exports.randomString = function randomString() {
+  var length = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 18;
+
+  var charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  var result = '';
+  if (window.crypto && window.crypto.getRandomValues) {
+    var values = new Uint32Array(length);
+    window.crypto.getRandomValues(values);
+    for (var i = 0; i < length; i++) {
+      result += charset[values[i] % charset.length];
+    }
+  } else {
+    console.log("Your browser can't generate secure random numbers");
+  }
+  return result;
+};
+
+/**
+ * Decrypt data with AES-GCM cipher
+ *
+ * @param {ArrayBuffer} data Data to decrypt
+ * @param {ArrayBuffer} key Aes key as raw data. 128 or 256 bits
+ * @param {ArrayBuffer} iv The IV with a size of 96 bits (12 bytes)
+ * @param {string} mode The encryption mode : AES-GCM
+ * @param {ArrayBuffer} additionalData The non-secret authenticated data
+ * @returns {ArrayBuffer}
+ */
+var decryptBuffer = function decryptBuffer(data, key, iv, mode, additionalData) {
+  // TODO: test input params
+  return crypto.subtle.importKey('raw', key, {
+    name: mode
+  }, true, ['encrypt', 'decrypt']).then(function (bufKey) {
+    return crypto.subtle.decrypt({
+      name: mode,
+      iv: iv,
+      additionalData: additionalData
+    }, bufKey, data).then(function (result) {
+      return new Uint8Array(result);
+    }, logFail);
+  }, logFail);
+};
+
+/**
+ * Encrypt data with AES-GCM cipher
+ *
+ * @param {ArrayBuffer} data Data to encrypt
+ * @param {ArrayBuffer} key Aes key as raw data. 128 or 256 bits
+ * @param {ArrayBuffer} iv The IV with a size of 96 bits (12 bytes)
+ * @param {string} mode The encryption mode : AES-GCM
+ * @param {ArrayBuffer} additionalData The non-secret authenticated data
+ * @returns {ArrayBuffer}
+ */
+var encryptBuffer = function encryptBuffer(data, key, iv) {
+  var mode = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : "aes-gcm";
+  var additionalData = arguments[4];
+
+  return crypto.subtle.importKey('raw', key, {
+    name: mode
+  }, true, ['encrypt', 'decrypt']).then(function (bufKey) {
+    return crypto.subtle.encrypt({
+      name: mode,
+      iv: iv,
+      additionalData: additionalData
+    }, bufKey, data).then(function (result) {
+      return new Uint8Array(result);
+    }, logFail);
+  }, logFail);
+};
+
+/**
+ * Encrypt an object
+ *
+ * @param {ArrayBuffer} key Encryption key
+ * @param {string} data A string containing data to be encrypted (e.g. a stringified JSON)
+ * @param {string} additionalData The authenticated data (ex. version number :1.0.1 )
+ * @returns {object} Return a promise with a JSON object having the following format :
+ *     { ciphertext : {hexString}, iv : {hexString}, version : {string} }
+ */
+var encrypt = exports.encrypt = function encrypt(key, data, additionalData) {
+  // Prepare context
+  var iv = window.crypto.getRandomValues(new Uint8Array(12));
+  var toEncrypt = toArray(data);
+
+  return encryptBuffer(toEncrypt, key, iv, 'AES-GCM', toArray(additionalData)).then(function (result) {
+    return { ciphertext: bufferToHexString(result), iv: bufferToHexString(iv), version: additionalData };
+  }, logFail);
+};
+
+/**
+ * Decrypt an object
+ *
+ * @param {ArrayBuffer} key Decryption key
+ * @param {object} encrypted data Must contain 3 values:
+ *     { ciphertext : {hexString}, iv : {hexString}, version : {string}
+ * @returns {string} Return the decrypted data as a string.
+ *
+ */
+var decrypt = exports.decrypt = function decrypt(key, data) {
+  // Prepare context
+  var ciphertext = hexStringToBuffer(data.ciphertext);
+  var additionalData = toArray(data.version);
+  var iv = hexStringToBuffer(data.iv);
+
+  return decryptBuffer(ciphertext, key, iv, 'AES-GCM', additionalData).then(function (decrypted) {
+    return toString(decrypted);
+  }, logFail);
+};
+
+/**
+ * Print error messages
+ *
+ * @param {Error} err Error message
+ */
+var logFail = function logFail(err) {
+  console.log(err);
+};
+
+/**
+ * Gets tag from encrypted data
+ *
+ * @param {ArrayBuffer} encrypted Encrypted data
+ * @param {number} tagLength Tag length in bits. Default 128 bits
+ * @returns {ArrayBuffer}
+ */
+var getTag = exports.getTag = function getTag(encrypted) {
+  var tagLength = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 128;
+
+  return encrypted.slice(encrypted.byteLength - (tagLength + 7 >> 3));
+};
+
+/**
+ * Convert hex String to ArrayBufffer
+ * ex : '11a1b2' -> Uint8Array [ 17, 161, 178 ]
+ *
+ * @param {String} hexString
+ * @returns {ArrayBuffer}
+ */
+var hexStringToBuffer = exports.hexStringToBuffer = function hexStringToBuffer(hexString) {
+  if (hexString.length % 2 !== 0) {
+    throw new Error('Invalid hexString');
+  }
+  var arrayBuffer = new Uint8Array(hexString.length / 2);
+
+  for (var i = 0; i < hexString.length; i += 2) {
+    var byteValue = parseInt(hexString.substr(i, 2), 16);
+    if (isNaN(byteValue)) {
+      throw new Error('Invalid hexString');
+    }
+    arrayBuffer[i / 2] = byteValue;
+  }
+
+  return arrayBuffer;
+};
+
+/**
+ * Convert ArrayBufffer to hex String
+ * ex : Uint8Array [ 17, 161, 178 ] -> '11a1b2'
+ *
+ * @param {ArrayBuffer} bytes
+ * @returns {String}
+ */
+var bufferToHexString = exports.bufferToHexString = function bufferToHexString(bytes) {
+  if (!bytes) {
+    return null;
+  }
+  var hexBytes = [];
+
+  for (var i = 0; i < bytes.length; ++i) {
+    var byteString = bytes[i].toString(16);
+    if (byteString.length < 2) {
+      byteString = '0' + byteString;
+    }
+    hexBytes.push(byteString);
+  }
+
+  return hexBytes.join('');
+};
+
+/**
+ * Convert ascii to ArrayBufffer
+ * ex : "bonjour" -> Uint8Array [ 98, 111, 110, 106, 111, 117, 114 ]
+ *
+ * @param {String} str
+ * @returns {ArrayBuffer}
+ */
+var toArray = exports.toArray = function toArray() {
+  var str = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+
+  var chars = [];
+  for (var i = 0; i < str.length; ++i) {
+    chars.push(str.charCodeAt(i));
+  }
+  return new Uint8Array(chars);
+};
+
+/**
+ * Convert ArrayBufffer to ascii
+ * ex : Uint8Array [ 98, 111, 110, 106, 111, 117, 114 ] -> "bonjour"
+ *
+ * @param {ArrayBuffer} bytes
+ * @returns {String}
+ */
+var toString = exports.toString = function toString(bytes) {
+  return String.fromCharCode.apply(null, new Uint8Array(bytes));
+};
+},{}],2:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
 exports.unregisterApp = exports.registerApp = exports.syncApp = exports.init = undefined;
 
 var _store = require('./store');
@@ -27,6 +270,10 @@ var store = _interopRequireWildcard(_store);
 var _permissions = require('./permissions');
 
 var acl = _interopRequireWildcard(_permissions);
+
+var _crypto = require('./crypto');
+
+var crypto = _interopRequireWildcard(_crypto);
 
 var _util = require('./util');
 
@@ -137,6 +384,9 @@ var initWs = function initWs(params) {
   log('Initializing WebSocket with params:', params);
   sync.initWSClient(params.syncserver, params.syncroom).then(function (ws) {
     wsClient = ws;
+    if (params.cryptoKey) {
+      wsClient.cryptoKey = crypto.hexStringToBuffer(params.cryptoKey);
+    }
 
     // Check if we need to sync the local store
     sync.check(wsClient, clientId);
@@ -144,7 +394,20 @@ var initWs = function initWs(params) {
     wsClient.onmessage = function (event) {
       try {
         var msg = JSON.parse(event.data);
-        sync.handleMessage(wsClient, msg, clientId);
+        if (msg.ciphertext && wsClient.cryptoKey) {
+          // decrypt message first
+          crypto.decrypt(wsClient.cryptoKey, msg).then(function (decrypted) {
+            try {
+              sync.handleMessage(wsClient, JSON.parse(decrypted), clientId);
+            } catch (err) {
+              console.log(err);
+            }
+          }).catch(function (err) {
+            console.log(err);
+          });
+        } else {
+          sync.handleMessage(wsClient, msg, clientId);
+        }
       } catch (err) {
         log(err);
       }
@@ -352,7 +615,7 @@ var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
   store.clear(origin);
   store.clear(store.META + '_' + origin);
 };
-},{"./permissions":2,"./store":3,"./sync":4,"./util":5}],2:[function(require,module,exports){
+},{"./crypto":1,"./permissions":3,"./store":4,"./sync":5,"./util":6}],3:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -390,7 +653,7 @@ var setPermissions = exports.setPermissions = function setPermissions(origin) {
   meta.permissions = list;
   store.setMeta(origin, meta);
 };
-},{"./store":3}],3:[function(require,module,exports){
+},{"./store":4}],4:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -734,7 +997,7 @@ var available = exports.available = function available() {
   }
   return status;
 };
-},{"./util":5}],4:[function(require,module,exports){
+},{"./util":6}],5:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -751,10 +1014,12 @@ var _store = require('./store');
 
 var store = _interopRequireWildcard(_store);
 
+var _crypto = require('./crypto');
+
+var crypto = _interopRequireWildcard(_crypto);
+
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
-// TODO: find a better supported URL composer
-// import * as url from 'url'
 function initWSClient(server, room) {
   return new Promise(function (resolve, reject) {
     // const wsUrl = url.resolve(server, room)
@@ -791,6 +1056,8 @@ function initWSClient(server, room) {
  * @param   {object} msg The message recived by the WebSocket
  * @param   {string} client The local client ID
  */
+// TODO: find a better supported URL composer
+// import * as url from 'url'
 var handleMessage = exports.handleMessage = function handleMessage(ws, msg, client) {
   switch (msg.type) {
     case 'sync':
@@ -821,7 +1088,7 @@ var push = exports.push = function push(ws, origin, request) {
     request: request
   };
   if (ws.readyState === ws.OPEN) {
-    ws.send(JSON.stringify(req));
+    send(ws, req);
   }
 };
 
@@ -887,7 +1154,7 @@ var checkHandler = function checkHandler(msg, ws) {
           params: store.getAll(msg.origin)
         }
       };
-      ws.send(JSON.stringify(resp));
+      send(ws, resp);
     }
   }
 };
@@ -921,7 +1188,6 @@ var check = exports.check = function check(ws) {
         origin: meta.origin,
         updated: meta.updated
       };
-      ws.send(JSON.stringify(req));
     }
   }
 };
@@ -948,9 +1214,24 @@ var checkOne = exports.checkOne = function checkOne(ws) {
     origin: meta.origin,
     updated: meta.updated
   };
-  ws.send(JSON.stringify(req));
+  send(ws, req);
 };
 
+/**
+ * Send a message using a WebSocket session
+ *
+ * @param   {object} ws The WebSocket client
+ * @param   {object} data The data to be sent
+ */
+var send = function send(ws, data) {
+  if (ws.cryptoKey) {
+    crypto.encrypt(ws.cryptoKey, JSON.stringify(data), '').then(function (encrypted) {
+      ws.send(JSON.stringify(encrypted));
+    });
+    return;
+  }
+  ws.send(JSON.stringify(data));
+};
 /**
  * Check if a timestamp is in the future w.r.t. current local time.
  *
@@ -962,7 +1243,7 @@ var inTheFuture = function inTheFuture() {
 
   return ts > util.now();
 };
-},{"./store":3,"./util":5}],5:[function(require,module,exports){
+},{"./crypto":1,"./store":4,"./util":6}],6:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -1091,5 +1372,5 @@ var dataToImg = exports.dataToImg = function dataToImg(base64data) {
 
   return blob;
 };
-},{}]},{},[1])(1)
+},{}]},{},[2])(2)
 });
