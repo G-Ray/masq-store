@@ -99,6 +99,15 @@ const initWs = (params) => {
   if (!params) {
     params = parameters
   }
+
+  // reconnect handler
+  const reconnect = () => {
+    log(`..trying to reconnect`)
+    setTimeout(() => {
+      initWs(parameters)
+    }, wsTimeout)
+  }
+
   log('Initializing WebSocket with params:', params)
   sync.initWSClient(params.syncserver, params.syncroom).then((ws) => {
     wsClient = ws
@@ -132,19 +141,15 @@ const initWs = (params) => {
     }
 
     wsClient.onclose = (event) => {
-      log(`WebSocket connection closed`)
+      log(`WebSocket connection closed`, event)
         // Try to reconnect if the connection was closed
       if (event.wasClean === false || event.code === 1006) {
-        log(`..trying to reconnect`)
-        if (!window.timerID) {
-          window.timerID = setInterval(() => {
-            initWs(parameters)
-          }, wsTimeout)
-        }
+        reconnect()
       }
     }
   }).catch((err) => {
-    log(err)
+    log('Failed to initialize WebSocket.', err)
+    reconnect()
   })
 }
 

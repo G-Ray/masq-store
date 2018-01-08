@@ -15,11 +15,6 @@ export function initWSClient (server, room) {
     const ws = new window.WebSocket(wsUrl)
 
     ws.onopen = () => {
-      // throttle openning new sockets
-      if (window.timerID) {
-        window.clearInterval(window.timerID)
-        delete window.timerID
-      }
       console.log(`Connected to Sync server at ${wsUrl}`)
       // TODO: check if we need to sync with other devices
       return resolve(ws)

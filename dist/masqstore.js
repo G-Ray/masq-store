@@ -381,6 +381,15 @@ var initWs = function initWs(params) {
   if (!params) {
     params = parameters;
   }
+
+  // reconnect handler
+  var reconnect = function reconnect() {
+    log('..trying to reconnect');
+    setTimeout(function () {
+      initWs(parameters);
+    }, wsTimeout);
+  };
+
   log('Initializing WebSocket with params:', params);
   sync.initWSClient(params.syncserver, params.syncroom).then(function (ws) {
     wsClient = ws;
@@ -414,19 +423,15 @@ var initWs = function initWs(params) {
     };
 
     wsClient.onclose = function (event) {
-      log('WebSocket connection closed');
+      log('WebSocket connection closed', event);
       // Try to reconnect if the connection was closed
       if (event.wasClean === false || event.code === 1006) {
-        log('..trying to reconnect');
-        if (!window.timerID) {
-          window.timerID = setInterval(function () {
-            initWs(parameters);
-          }, wsTimeout);
-        }
+        reconnect();
       }
     };
   }).catch(function (err) {
-    log(err);
+    log('Failed to initialize WebSocket.', err);
+    reconnect();
   });
 };
 
@@ -1031,11 +1036,6 @@ function initWSClient(server, room) {
     var ws = new window.WebSocket(wsUrl);
 
     ws.onopen = function () {
-      // throttle openning new sockets
-      if (window.timerID) {
-        window.clearInterval(window.timerID);
-        delete window.timerID;
-      }
       console.log('Connected to Sync server at ' + wsUrl);
       // TODO: check if we need to sync with other devices
       return resolve(ws);
