@@ -92,7 +92,7 @@ const updateHandler = (msg, client) => {
   store.prepareResponse(msg.origin, msg.request, client)
 
   // Force the local client ID
-  msg.client = client
+  msg.client = msg.request.client || client
   msg.sync = true
 
   // postMessage requires that the target origin be set to "*" for "file://"
@@ -209,5 +209,6 @@ const send = (ws, data) => {
  * @return  {bool} Whether the timestamp is in the future or not
  */
 const inTheFuture = (ts = 0) => {
-  return ts > util.now()
+  // Allow 5s delay
+  return ts > util.now() + 5000
 }

@@ -1115,7 +1115,7 @@ var updateHandler = function updateHandler(msg, client) {
   store.prepareResponse(msg.origin, msg.request, client);
 
   // Force the local client ID
-  msg.client = client;
+  msg.client = msg.request.client || client;
   msg.sync = true;
 
   // postMessage requires that the target origin be set to "*" for "file://"
@@ -1241,7 +1241,8 @@ var send = function send(ws, data) {
 var inTheFuture = function inTheFuture() {
   var ts = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
 
-  return ts > util.now();
+  // Allow 5s delay
+  return ts > util.now() + 5000;
 };
 },{"./crypto":1,"./store":4,"./util":6}],6:[function(require,module,exports){
 'use strict';
