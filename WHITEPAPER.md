@@ -4,7 +4,7 @@
 
 ![Masq Logo](https://i.imgur.com/qZ3dq0Q.png)
 
-# TOC
+# Contents
 
   * [Motivation](#motivation)
   * [Architecture](#architecture)
