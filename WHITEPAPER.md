@@ -13,7 +13,11 @@
     * [Pairing new devices](#pairing-new-devices)
     * [Shared secret key](#shared-secret-key)
     * [Synchronization](#synchronization)
-
+  * [Next steps](#next-steps)
+    * [Multi-user support](#multi-user-support)
+    * [Improved security](#improved-security)
+    * [Data reuse in applications](#data-reuse-in-applications)
+  * [Demo](#demo)
 
 # Motivation
 
@@ -58,3 +62,33 @@ For ease of use, the URL can also be placed in a QR code, to avoid errors in typ
 The sync process is done exclusively by the store, meaning that client applications do not need to be concerned about anything related to data synchronization. Once the shared secret key has been shared with a new device, and the symmetric crypto key has been derived, the devices are ready to sync data. The data transfer is done using the WebSocket protocol. We offer a public sync server at wss://sync-beta.qwantresearch.com:8080, but you can also [install and run it](https://github.com/QwantResearch/masq-syncserver) yourself.
 
 All the devices that have been paired join a room with a unique ID that corresponds to the hashed value of the shared secret key. In our current implementation, all changes that are made through the client API are then propagated to all the other devices using a broadcast approach. However, in certain cases, a device may be offline during a broadcast and thus it may miss an update event. In this case, when the device (re)connects to the sync server (or when it detects that it is back online) it will send a special `check` message with the timestamp of its last update. When this message is received by other devices, they will compare timestamps and then send the new data in case the timestamp received is lower than the local one they have. Please note that all messages sent through the WebSocket are encrypted by default.
+
+
+# Next steps
+
+Here is a list of improvements, in no particular order.
+
+## Multi-user support
+The current implementation is restricted to only one user/device. We would like to allow multiple users to store data on the same device and to be able to switch without having to clear the local data between sessions.
+
+## Improved security
+
+We are currently working on improving the security of in two different areas: data storage security and sync security.
+
+**Data storage** - since the current implementation operates with the premise of one user per device, it does not encrypt the data that is stored locally. Our plan is to also encrypt local data once we switch to multi-user support per device.
+
+**Sync** - one immediate improvement we can make to the sync protocol is switching to using [Perfect Forward Secrecy](https://en.wikipedia.org/wiki/Forward_secrecy) (PFS) when sending updates through the WebSocket. PFS refers to the notion that each message sent is encrypted with a unique key, so that compromise of a single key will permit access to only data protected by a single key.
+
+## Data reuse in applications
+We are planning to allow applications to (re)use data that is managed by other applications. For instance, you should not have to type your name in every application. We are working on a permissions system to allow an application to require data from other applications.
+
+# Demo
+
+The current proof of concept can be accessed at [https://sync-beta.qwantresearch.com](https://sync-beta.qwantresearch.com). You can try it out with a very [simple test app](https://sync-beta.qwantresearch.com/test/) that increments/decrements a counter. Here are the steps you need to follow:
+
+1. Open the Masq UI (first link) and click the `Enable pairing` button in the Pairing tab on device 1.
+2. Next go to the test app and click on the registration link. It will open a new window asking for your permission to store data using Masq. 
+3. Play with the counter once you complete the registration.
+4. Use a different device to scan the QR code (or copy the link) shown on the Pairing tab on device 1.
+5. Repeat step 2 on the second device.
+6. Going back to the test app on device 2 you should now see the same value for the counter that you have on device 1. Any changes you make on device 2 should automatically be synchronized with device 1.
