@@ -7,6 +7,7 @@
 # Contents
 
   * [Motivation](#motivation)
+  * [Use cases](#use-cases)
   * [Architecture](#architecture)
     * [Overview](#overview)
     * [Data storage](#data-storage)
@@ -31,6 +32,17 @@ First, we need to aim for user-centricity, though please bear in mind I'm not ta
 
 The solution is a *user-centric* approach. The Internet allows us to stay connected almost permanently, with very little downtime, on most of our devices, so why not store the data on our devices under our control? All devices then share the data and stay synchronized. When you use an app, it just needs to request access to the local data store on the device. "Running" the app then simply means you just need to load the Javascript, HTML and CSS files, since the data is stored locally. For example, you can use a maps app that stores your POIs locally, and then shares them with your other devices. This new approach provides an unparalled level of privacy. The company who made the app has no idea who you are and has no access to your data since no data is sent or stored on remote servers.
 
+# Use cases
+Here is a list of use cases that apply to Masq, where data can be stored locally on the user's devices.
+
+  * Location data (for maps, weather, etc)
+  * Identity information (name, photo, data of birth, address)
+  * Payment information (credit cards)
+  * Health data (fitness, mediacal)
+  * Music preferences (playlists, subscription information)
+  * News sources (RSS feeds, only publications)
+  * Search preferences (ecommerce, or even consentual advertising)
+  * ... the list goes on
 
 # Architecture
 
