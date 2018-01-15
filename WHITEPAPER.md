@@ -101,7 +101,7 @@ The current architecture suffers from a list of known limitations, which we beli
 
   * Not suitable for large scale data storage (e.g. photos, videos, etc.). A possible solution is to pair a "static" device (i.e. a server) and store large documents there.
   * No social features - cannot *share* content with other users. A possible solution also involves a paired server that can be used as a gateway to publish documents on the Web.
-  * Not relying on the cloud means there are no backups. If you lose your devices, you lose *all* your data.
+  * Not relying on the cloud means there are no backups automatic. If you lose your devices, you lose *all* your data.
 
 # Demo
 
