@@ -16,3 +16,7 @@ cd masq-store
 npm install
 npm start
 ```
+
+## Demo server
+
+You can access a demo instance of the store at https://sync-beta.qwantresearch.com. Follow the steps from the [Masq Client](https://github.com/QwantResearch/masq-client) README file to start using it in your application.
