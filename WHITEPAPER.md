@@ -31,7 +31,7 @@ The solution is a *user-centric* approach. The Internet allows us to stay connec
 # Architecture
 
 ## Overview
-The architecture of our Web-based implementation is fairly straightforward. Data is stored on the device, using the browser's native storage APIs (either `localStorage` or `IndexedDB`). Client applications connect to the data store through a middleware (client) API that creates an Origin-bound communication channel using `postMessage` between the app and the store, through a hidden `<IFRAME>` element. This may not be an elegant solution for some people, though it offers quite decent security and browser support at no extra cost.
+The architecture of our Web-based implementation is fairly straightforward. Data is stored on the device, using the browser's native storage APIs (either `localStorage` or `IndexedDB`). Client applications connect to the data store through a middleware (client) API that creates an Origin-bound communication channel using `postMessage` between the app and the store, through a hidden `<iframe>` element. This may not be an elegant solution for some people, though it offers quite decent security and browser support at no extra cost.
 
 ## Data storage
 Right now the default store in our proof-of-concept implementation is based on `localStorage`, with `IndexedDB` to follow shortly. Applications are sandboxed to their own storage space, bound to the app's `Origin`. The client API for accessing the store is documented in the [client library](https://github.com/QwantResearch/masq-client), and it offers the ability to read and write individual key/value pairs or the whole data store for the given app. We have plans to allow inter-app access in the near future, protected by access control policies.
