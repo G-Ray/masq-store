@@ -18,6 +18,7 @@
     * [Multi-user support](#multi-user-support)
     * [Improved security](#improved-security)
     * [Data reuse in applications](#data-reuse-in-applications)
+  * [Known limitations](#known-limitations)
   * [Demo](#demo)
 
 # Motivation
@@ -93,6 +94,14 @@ We are currently working on improving the security of in two different areas: da
 
 ## Data reuse in applications
 We are planning to allow applications to (re)use data that is managed by other applications. For instance, you should not have to type your name in every application. We are working on a permissions system to allow an application to require data from other applications.
+
+
+# Known limitations
+The current architecture suffers from a list of known limitations, which we believe can be fixed in time.
+
+  * Not suitable for large scale data storage (e.g. photos, videos, etc.). A possible solution is to pair a "static" device (i.e. a server) and store large documents there.
+  * No social features - cannot *share* content with other users. A possible solution also involves using a paired server that can be used as a gateway to serve documents on the Web.
+  * Not relying on the cloud means there are no backups. If you lose your devices, you lose *all* your data.
 
 # Demo
 
