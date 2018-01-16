@@ -603,14 +603,14 @@ var registerApp = exports.registerApp = function registerApp(url) {
     if (!store.exists(origin)) {
       store.setAll(origin, {});
 
-      meta.origin = origin;
-      meta.permissions = meta.permissions || defaultPermissions;
+      _meta.origin = origin;
+      _meta.permissions = _meta.permissions || defaultPermissions;
 
-      var updated = store.setMeta(origin, meta);
+      var _meta = store.setMeta(origin, _meta);
       // Trigger sync if this was a new app we just added
       sync.checkOne(wsClient, clientId, origin);
       log('Registered app:', origin);
-      return updated;
+      return _meta;
     }
   }
 };
@@ -1221,6 +1221,7 @@ var exportHandler = function exportHandler(msg, ws) {
   msg.list.forEach(function (app) {
     if (!store.exists(app.key)) {
       store.setAll(app.key, app.data);
+      store.setAll(app.data.origin, {});
       // Send event to UI app
       var event = new window.CustomEvent('syncapp', { detail: app.data });
       window.dispatchEvent(event);
