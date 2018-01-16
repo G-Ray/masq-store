@@ -43,6 +43,12 @@ export const handleMessage = (ws, msg, client) => {
     case 'check':
       checkHandler(msg, ws, client)
       break
+    case 'import':
+      importHandler(msg, ws, client)
+      break
+    case 'export':
+      exportHandler(msg, ws, client)
+      break
     default:
       break
   }
@@ -81,7 +87,7 @@ const updateHandler = (msg, client) => {
   }
   const meta = store.getMeta(msg.origin)
   // no need to update local store if we have updated already to this version
-  if (inTheFuture(msg.request.updated)) {
+  if (util.inTheFuture(msg.request.updated)) {
     return
   }
   if (util.isEmpty(meta) || meta.updated > msg.request.updated || !meta.sync) {
@@ -108,11 +114,12 @@ const updateHandler = (msg, client) => {
  *
  * @param   {object} msg The contents of the message recived by the WebSocket
  * @param   {object} ws The WebSocket client
+ * @param   {string} client The app client ID
  */
 const checkHandler = (msg, ws, client = '') => {
   // Check if we have local data that was changed after the specified data
   // but ignore request if the received timestamp comes from the future
-  if (store.exists(msg.origin) && msg.updated !== undefined && !inTheFuture(msg.updated)) {
+  if (store.exists(msg.origin) && msg.updated !== undefined && !util.inTheFuture(msg.updated)) {
     const meta = store.getMeta(msg.origin)
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
@@ -135,6 +142,59 @@ const checkHandler = (msg, ws, client = '') => {
 }
 
 /**
+ * Send local list of apps to remote device.
+ *
+ * @param   {object} msg The contents of the message recived by the WebSocket
+ * @param   {object} ws The WebSocket client
+ * @param   {string} client The app client ID
+ */
+const importHandler = (msg, ws, client = '') => {
+  const apps = store.metaList()
+  if (apps.length === 0) {
+    return
+  }
+  const list = apps.map(key => {
+    const app = {}
+    app.key = key
+    app.data = store.getAll(key)
+    // clear irrelevant data
+    delete app.data.updated
+    app.data.sync = false
+    return app
+  })
+  const resp = {
+    type: 'export',
+    client: msg.client,
+    origin: msg.origin,
+    list: list
+  }
+  console.log('Exporting:', resp)
+  send(ws, resp)
+}
+
+/**
+ * Store remote list of apps locally.
+ *
+ * @param   {object} msg The contents of the message recived by the WebSocket
+ * @param   {object} ws The WebSocket client
+ * @param   {string} client The app client ID
+ */
+const exportHandler = (msg, ws, client = '') => {
+  if (!msg.list || !Array.isArray(msg.list)) {
+    return
+  }
+  msg.list.forEach(app => {
+    if (!store.exists(app.key)) {
+      store.setAll(app.key, app.data)
+      console.log('Adding new app meta:', app)
+      // Send event to parent app
+      const event = new window.CustomEvent('syncapp', { detail: app.data })
+      window.dispatchEvent(event)
+    }
+  })
+}
+
+/**
  * Check if the other devices have an update for us.
  *
  * @param   {object} ws The WebSocket client
@@ -152,15 +212,15 @@ export const check = (ws, client = '', list) => {
 
   for (let i = 0; i < appList.length; i++) {
     const meta = store.getAll(appList[i])
-    meta.updated = meta.updated || 0
     if (meta.sync) {
-      let req = {
+      meta.updated = meta.updated || 0
+      const req = {
         type: 'check',
         client: client,
         origin: meta.origin,
         updated: meta.updated
       }
-      
+      send(ws, req)
     }
   }
 }
@@ -178,11 +238,27 @@ export const checkOne = (ws, client = '', origin) => {
   }
   const meta = store.getMeta(origin)
   meta.updated = meta.updated || 0
-  let req = {
+  const req = {
     type: 'check',
     client: client,
     origin: meta.origin,
     updated: meta.updated
+  }
+  send(ws, req)
+}
+
+/**
+ * Force sync of app metadata from other devices.
+ * This is typically done right after pairing a new device.
+ *
+ * @param   {object} ws The WebSocket client
+ */
+export const syncApps = (ws) => {
+  if (!ws) {
+    return
+  }
+  const req = {
+    type: 'import'
   }
   send(ws, req)
 }
@@ -201,14 +277,4 @@ const send = (ws, data) => {
     return
   }
   ws.send(JSON.stringify(data))
-}
-/**
- * Check if a timestamp is in the future w.r.t. current local time.
- *
- * @param   {int} ts The timestamp to check
- * @return  {bool} Whether the timestamp is in the future or not
- */
-const inTheFuture = (ts = 0) => {
-  // Allow 5s delay
-  return ts > util.now() + 5000
 }

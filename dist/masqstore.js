@@ -247,7 +247,7 @@ var toString = exports.toString = function toString(bytes) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.unregisterApp = exports.registerApp = exports.syncApp = exports.init = undefined;
+exports.unregisterApp = exports.registerApp = exports.syncApps = exports.syncApp = exports.init = undefined;
 
 var _store = require('./store');
 
@@ -574,12 +574,19 @@ var onlineStatus = function onlineStatus(online, params) {
  * Force sync a given app
  *
  * @param   {string} url The URL of the app
- * @param   {object} meta An object containing additional meta data for the app
  */
 var syncApp = exports.syncApp = function syncApp(url) {
   if (url && url.length > 0) {
     sync.checkOne(wsClient, clientId, url);
   }
+};
+
+/**
+ * Sync app metadata from remote devices
+ *
+ */
+var syncApps = exports.syncApps = function syncApps() {
+  sync.syncApps(wsClient);
 };
 
 /**
@@ -934,7 +941,7 @@ var metaList = exports.metaList = function metaList() {
   var list = [];
   for (var i = 0; i < store.length; i++) {
     var item = store.key(i);
-    if (item.indexOf(META + '_') === 0) {
+    if (item.indexOf(META + '_') === 0 && item !== META) {
       list.push(item);
     }
   }
@@ -1008,7 +1015,7 @@ var available = exports.available = function available() {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.checkOne = exports.check = exports.push = exports.handleMessage = undefined;
+exports.syncApps = exports.checkOne = exports.check = exports.push = exports.handleMessage = undefined;
 exports.initWSClient = initWSClient;
 
 var _util = require('./util');
@@ -1066,6 +1073,12 @@ var handleMessage = exports.handleMessage = function handleMessage(ws, msg, clie
     case 'check':
       checkHandler(msg, ws, client);
       break;
+    case 'import':
+      importHandler(msg, ws, client);
+      break;
+    case 'export':
+      exportHandler(msg, ws, client);
+      break;
     default:
       break;
   }
@@ -1104,7 +1117,7 @@ var updateHandler = function updateHandler(msg, client) {
   }
   var meta = store.getMeta(msg.origin);
   // no need to update local store if we have updated already to this version
-  if (inTheFuture(msg.request.updated)) {
+  if (util.inTheFuture(msg.request.updated)) {
     return;
   }
   if (util.isEmpty(meta) || meta.updated > msg.request.updated || !meta.sync) {
@@ -1131,13 +1144,14 @@ var updateHandler = function updateHandler(msg, client) {
  *
  * @param   {object} msg The contents of the message recived by the WebSocket
  * @param   {object} ws The WebSocket client
+ * @param   {string} client The app client ID
  */
 var checkHandler = function checkHandler(msg, ws) {
   var client = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
 
   // Check if we have local data that was changed after the specified data
   // but ignore request if the received timestamp comes from the future
-  if (store.exists(msg.origin) && msg.updated !== undefined && !inTheFuture(msg.updated)) {
+  if (store.exists(msg.origin) && msg.updated !== undefined && !util.inTheFuture(msg.updated)) {
     var meta = store.getMeta(msg.origin);
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
@@ -1157,6 +1171,63 @@ var checkHandler = function checkHandler(msg, ws) {
       send(ws, resp);
     }
   }
+};
+
+/**
+ * Send local list of apps to remote device.
+ *
+ * @param   {object} msg The contents of the message recived by the WebSocket
+ * @param   {object} ws The WebSocket client
+ * @param   {string} client The app client ID
+ */
+var importHandler = function importHandler(msg, ws) {
+  var client = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+
+  var apps = store.metaList();
+  if (apps.length === 0) {
+    return;
+  }
+  var list = apps.map(function (key) {
+    var app = {};
+    app.key = key;
+    app.data = store.getAll(key);
+    // clear irrelevant data
+    delete app.data.updated;
+    app.data.sync = false;
+    return app;
+  });
+  var resp = {
+    type: 'export',
+    client: msg.client,
+    origin: msg.origin,
+    list: list
+  };
+  console.log('Exporting:', resp);
+  send(ws, resp);
+};
+
+/**
+ * Store remote list of apps locally.
+ *
+ * @param   {object} msg The contents of the message recived by the WebSocket
+ * @param   {object} ws The WebSocket client
+ * @param   {string} client The app client ID
+ */
+var exportHandler = function exportHandler(msg, ws) {
+  var client = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+
+  if (!msg.list || !Array.isArray(msg.list)) {
+    return;
+  }
+  msg.list.forEach(function (app) {
+    if (!store.exists(app.key)) {
+      store.setAll(app.key, app.data);
+      console.log('Adding new app meta:', app);
+      // Send event to parent app
+      var event = new window.CustomEvent('syncapp', { detail: app.data });
+      window.dispatchEvent(event);
+    }
+  });
 };
 
 /**
@@ -1180,14 +1251,15 @@ var check = exports.check = function check(ws) {
 
   for (var i = 0; i < appList.length; i++) {
     var meta = store.getAll(appList[i]);
-    meta.updated = meta.updated || 0;
     if (meta.sync) {
+      meta.updated = meta.updated || 0;
       var req = {
         type: 'check',
         client: client,
         origin: meta.origin,
         updated: meta.updated
       };
+      send(ws, req);
     }
   }
 };
@@ -1218,6 +1290,22 @@ var checkOne = exports.checkOne = function checkOne(ws) {
 };
 
 /**
+ * Force sync of app metadata from other devices.
+ * This is typically done right after pairing a new device.
+ *
+ * @param   {object} ws The WebSocket client
+ */
+var syncApps = exports.syncApps = function syncApps(ws) {
+  if (!ws) {
+    return;
+  }
+  var req = {
+    type: 'import'
+  };
+  send(ws, req);
+};
+
+/**
  * Send a message using a WebSocket session
  *
  * @param   {object} ws The WebSocket client
@@ -1231,18 +1319,6 @@ var send = function send(ws, data) {
     return;
   }
   ws.send(JSON.stringify(data));
-};
-/**
- * Check if a timestamp is in the future w.r.t. current local time.
- *
- * @param   {int} ts The timestamp to check
- * @return  {bool} Whether the timestamp is in the future or not
- */
-var inTheFuture = function inTheFuture() {
-  var ts = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
-
-  // Allow 5s delay
-  return ts > util.now() + 5000;
 };
 },{"./crypto":1,"./store":4,"./util":6}],6:[function(require,module,exports){
 'use strict';
@@ -1264,6 +1340,19 @@ var now = exports.now = function now() {
     return Date.now();
   }
   return new Date().getTime();
+};
+
+/**
+ * Check if a timestamp is in the future w.r.t. current local time.
+ *
+ * @param   {int} ts The timestamp to check
+ * @return  {bool} Whether the timestamp is in the future or not
+ */
+var inTheFuture = exports.inTheFuture = function inTheFuture() {
+  var ts = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
+
+  // Allow 60 seconds of delay
+  return ts > now() + 60000;
 };
 
 /**
@@ -1354,9 +1443,13 @@ var isLocal = exports.isLocal = function isLocal(url) {
   return false;
 };
 
+/**
+ * Transform the base64 representation of an image into a real image
+ *
+ * @param {string} base64data The base64 encoding of an image
+ */
 var dataToImg = exports.dataToImg = function dataToImg(base64data) {
   var data = base64data.split(',')[1];
-  // var binary = atob(data);
   var binary = void 0;
   if (base64data.split(',')[0].indexOf('base64') >= 0) {
     binary = atob(data);

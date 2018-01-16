@@ -260,7 +260,7 @@ export const metaList = () => {
   let list = []
   for (let i = 0; i < store.length; i++) {
     const item = store.key(i)
-    if (item.indexOf(`${META}_`) === 0) {
+    if (item.indexOf(`${META}_`) === 0 && item !== META) {
       list.push(item)
     }
   }
