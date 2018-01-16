@@ -36,13 +36,13 @@ The solution is a *user-centric* approach. The Internet allows us to stay connec
 # Use cases
 Here is a list of use cases that apply to Masq, where data can be stored locally on the user's devices.
 
-  * Location data (for maps, weather, etc)
+  * Location data (for maps, weather, commuting)
   * Identity information (name, photo, data of birth, address)
   * Payment information (credit cards)
-  * Health data (fitness, mediacal)
+  * Health data (fitness, medical)
   * Music preferences (playlists, subscription information)
-  * News sources (RSS feeds, only publications)
-  * Search preferences (ecommerce, or even consentual advertising)
+  * News sources (RSS feeds, list of publications)
+  * Search preferences (e-commerce, or even consensual advertising)
   * ... the list goes on
 
 # Architecture
