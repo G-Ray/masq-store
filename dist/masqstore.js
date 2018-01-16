@@ -376,7 +376,7 @@ var init = exports.init = function init() {
  */
 var initWs = function initWs(params) {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
-    return;
+    wsClient.close();
   }
   if (!params) {
     params = parameters;
@@ -396,9 +396,6 @@ var initWs = function initWs(params) {
     if (params.cryptoKey) {
       wsClient.cryptoKey = crypto.hexStringToBuffer(params.cryptoKey);
     }
-
-    // Check if we need to sync the local store
-    sync.check(wsClient, clientId);
 
     wsClient.onmessage = function (event) {
       try {
@@ -429,6 +426,14 @@ var initWs = function initWs(params) {
         reconnect();
       }
     };
+
+    // Check if we need to sync the local store
+    sync.check(wsClient, clientId);
+
+    // Check if we need to sync all apps
+    if (params.syncApps) {
+      syncApps();
+    }
   }).catch(function (err) {
     log('Failed to initialize WebSocket.', err);
     reconnect();
@@ -603,14 +608,14 @@ var registerApp = exports.registerApp = function registerApp(url) {
     if (!store.exists(origin)) {
       store.setAll(origin, {});
 
-      _meta.origin = origin;
-      _meta.permissions = _meta.permissions || defaultPermissions;
+      meta.origin = origin;
+      meta.permissions = meta.permissions || defaultPermissions;
 
-      var _meta = store.setMeta(origin, _meta);
+      var updatedMeta = store.setMeta(origin, meta);
       // Trigger sync if this was a new app we just added
       sync.checkOne(wsClient, clientId, origin);
       log('Registered app:', origin);
-      return _meta;
+      return updatedMeta;
     }
   }
 };
@@ -1187,14 +1192,17 @@ var importHandler = function importHandler(msg, ws) {
   if (apps.length === 0) {
     return;
   }
-  var list = apps.map(function (key) {
+  var list = [];
+  apps.forEach(function (key) {
     var app = {};
     app.key = key;
     app.data = store.getAll(key);
-    // clear irrelevant data
-    delete app.data.updated;
-    app.data.sync = false;
-    return app;
+    if (app.data.sync) {
+      // clear irrelevant data
+      delete app.data.updated;
+      app.data.sync = false;
+      list.push(app);
+    }
   });
   var resp = {
     type: 'export',
@@ -1202,6 +1210,7 @@ var importHandler = function importHandler(msg, ws) {
     origin: msg.origin,
     list: list
   };
+  console.log(resp);
   send(ws, resp);
 };
 

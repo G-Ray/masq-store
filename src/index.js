@@ -94,7 +94,7 @@ export const init = (params = {}) => {
  */
 const initWs = (params) => {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
-    return
+    wsClient.close()
   }
   if (!params) {
     params = parameters
@@ -114,9 +114,6 @@ const initWs = (params) => {
     if (params.cryptoKey) {
       wsClient.cryptoKey = crypto.hexStringToBuffer(params.cryptoKey)
     }
-
-    // Check if we need to sync the local store
-    sync.check(wsClient, clientId)
 
     wsClient.onmessage = (event) => {
       try {
@@ -146,6 +143,14 @@ const initWs = (params) => {
       if (event.wasClean === false || event.code === 1006) {
         reconnect()
       }
+    }
+
+    // Check if we need to sync the local store
+    sync.check(wsClient, clientId)
+
+    // Check if we need to sync all apps
+    if (params.syncApps) {
+      syncApps()
     }
   }).catch((err) => {
     log('Failed to initialize WebSocket.', err)
