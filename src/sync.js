@@ -153,14 +153,17 @@ const importHandler = (msg, ws, client = '') => {
   if (apps.length === 0) {
     return
   }
-  const list = apps.map(key => {
+  let list = []
+  apps.forEach(key => {
     const app = {}
     app.key = key
     app.data = store.getAll(key)
-    // clear irrelevant data
-    delete app.data.updated
-    app.data.sync = false
-    return app
+    if (app.data.sync) {
+      // clear irrelevant data
+      delete app.data.updated
+      app.data.sync = false
+      list.push(app)
+    }
   })
   const resp = {
     type: 'export',
@@ -168,6 +171,7 @@ const importHandler = (msg, ws, client = '') => {
     origin: msg.origin,
     list: list
   }
+  console.log(resp)
   send(ws, resp)
 }
 
