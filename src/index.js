@@ -3,7 +3,7 @@ import * as store from './store'
 import * as acl from './permissions'
 import * as crypto from './crypto'
 import * as util from './util'
-import { decrypt } from './crypto';
+import { decrypt } from './crypto'
 // Export API
 export * from './store'
 
@@ -289,12 +289,19 @@ const onlineStatus = (online, params) => {
  * Force sync a given app
  *
  * @param   {string} url The URL of the app
- * @param   {object} meta An object containing additional meta data for the app
  */
 export const syncApp = (url) => {
   if (url && url.length > 0) {
     sync.checkOne(wsClient, clientId, url)
   }
+}
+
+/**
+ * Sync app metadata from remote devices
+ *
+ */
+export const syncApps = () => {
+  sync.syncApps(wsClient)
 }
 
 /**

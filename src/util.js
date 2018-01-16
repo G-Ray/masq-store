@@ -12,6 +12,17 @@ export const now = () => {
 }
 
 /**
+ * Check if a timestamp is in the future w.r.t. current local time.
+ *
+ * @param   {int} ts The timestamp to check
+ * @return  {bool} Whether the timestamp is in the future or not
+ */
+export const inTheFuture = (ts = 0) => {
+  // Allow 60 seconds of delay
+  return ts > now() + 60000
+}
+
+/**
  * Returns whether or not an object is empty.
  *
  * @param   {object} obj The object to check
@@ -104,9 +115,13 @@ export const isLocal = (url) => {
   return false
 }
 
+/**
+ * Transform the base64 representation of an image into a real image
+ *
+ * @param {string} base64data The base64 encoding of an image
+ */
 export const dataToImg = (base64data) => {
   const data = base64data.split(',')[1]
-  // var binary = atob(data);
   let binary
   if (base64data.split(',')[0].indexOf('base64') >= 0) {
     binary = atob(data)
