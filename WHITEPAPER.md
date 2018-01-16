@@ -90,7 +90,7 @@ We are currently working on improving the security of in two different areas: da
 
 **Data storage** - since the current implementation operates with the premise of one user per device, it does not encrypt the data that is stored locally. Our plan is to also encrypt local data once we switch to multi-user support per device.
 
-**Sync** - one immediate improvement we can make to the sync protocol is switching to using [Perfect Forward Secrecy](https://en.wikipedia.org/wiki/Forward_secrecy) (PFS) when sending updates through the WebSocket. PFS refers to the notion that each message sent is encrypted with a unique key, so that compromise of a single key will permit access to only data protected by a single key.
+**Sync** - one immediate improvement we can make to the sync protocol is switching to [Perfect Forward Secrecy](https://en.wikipedia.org/wiki/Forward_secrecy) (PFS) in order to encrypt each sync message with a different key when sending updates through the WebSocket. PFS refers to the notion that each message sent is encrypted with a unique key, so that compromise of a single key will permit access to only data protected by a single key.
 
 ## Data reuse in applications
 We are planning to allow applications to (re)use data that is managed by other applications. For instance, you should not have to type your name in every application. We are working on a permissions system to allow an application to require data from other applications.
