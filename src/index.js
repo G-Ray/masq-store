@@ -319,11 +319,11 @@ export const registerApp = (url, meta = {}) => {
       meta.origin = origin
       meta.permissions = meta.permissions || defaultPermissions
 
-      const updated = store.setMeta(origin, meta)
+      const updatedMeta = store.setMeta(origin, meta)
       // Trigger sync if this was a new app we just added
       sync.checkOne(wsClient, clientId, origin)
       log(`Registered app:`, origin)
-      return updated
+      return updatedMeta
     }
   }
 }
