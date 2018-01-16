@@ -1202,7 +1202,6 @@ var importHandler = function importHandler(msg, ws) {
     origin: msg.origin,
     list: list
   };
-  console.log('Exporting:', resp);
   send(ws, resp);
 };
 
@@ -1222,8 +1221,7 @@ var exportHandler = function exportHandler(msg, ws) {
   msg.list.forEach(function (app) {
     if (!store.exists(app.key)) {
       store.setAll(app.key, app.data);
-      console.log('Adding new app meta:', app);
-      // Send event to parent app
+      // Send event to UI app
       var event = new window.CustomEvent('syncapp', { detail: app.data });
       window.dispatchEvent(event);
     }

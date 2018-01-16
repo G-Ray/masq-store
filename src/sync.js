@@ -168,7 +168,6 @@ const importHandler = (msg, ws, client = '') => {
     origin: msg.origin,
     list: list
   }
-  console.log('Exporting:', resp)
   send(ws, resp)
 }
 
@@ -186,8 +185,7 @@ const exportHandler = (msg, ws, client = '') => {
   msg.list.forEach(app => {
     if (!store.exists(app.key)) {
       store.setAll(app.key, app.data)
-      console.log('Adding new app meta:', app)
-      // Send event to parent app
+      // Send event to UI app
       const event = new window.CustomEvent('syncapp', { detail: app.data })
       window.dispatchEvent(event)
     }
