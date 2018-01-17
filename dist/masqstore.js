@@ -375,8 +375,12 @@ var init = exports.init = function init() {
  * The current implementation unfortunately mutates the wsClient variable.
  */
 var initWs = function initWs(params) {
-  if (wsClient && wsClient.readyState === wsClient.OPEN) {
-    wsClient.close();
+  if (wsClient) {
+    try {
+      wsClient.close();
+    } catch (e) {
+      // no need to do anything
+    }
   }
   if (!params) {
     params = parameters;

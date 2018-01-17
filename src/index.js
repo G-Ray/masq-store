@@ -93,8 +93,13 @@ export const init = (params = {}) => {
  * The current implementation unfortunately mutates the wsClient variable.
  */
 const initWs = (params) => {
-  if (wsClient && wsClient.readyState === wsClient.OPEN) {
-    wsClient.close()
+  if (wsClient) {
+    // force close the client if we're going through init again
+    try {
+      wsClient.close()
+    } catch (e) {
+      // no need to do anything
+    }
   }
   if (!params) {
     params = parameters
