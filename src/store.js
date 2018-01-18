@@ -1,11 +1,24 @@
 import * as util from './util'
-import { isEmpty } from './util'
+import localForage from 'localforage'
 
-// Default storage API
-const store = window.localStorage
-
+export const VERSION = 1.0
 export const META = '_meta'
 export const USER = '_user'
+
+const store = localForage
+// Default storage API
+store.config({
+  driver: localForage.INDEXEDDB,
+  name: 'MasqStore',
+  version: VERSION
+})
+
+/**
+ * Check if the store is ready.
+ */
+export const ready = () => {
+  return store.ready()
+}
 
 /**
  * Returns a response object to the application requesting an action.
@@ -15,10 +28,10 @@ export const USER = '_user'
  * @param   {object} client The ID of the client performing the request
  * @returns {object} Response object
  */
-export const prepareResponse = (origin, request, client) => {
+export const prepareResponse = async (origin, request, client) => {
   let error, result
-  if (exists(origin)) {
-    const meta = getMeta(origin)
+  if (await exists(origin)) {
+    const meta = await getMeta(origin)
     if (request.updated) {
       meta.updated = request.updated
     }
@@ -26,31 +39,31 @@ export const prepareResponse = (origin, request, client) => {
       // 'get', 'set', 'del', 'clear', 'getAll' or 'setAll'
       switch (request.method) {
         case 'user':
-          result = user()
+          result = await user()
           break
         case 'get':
-          result = get(origin, request.params)
+          result = await get(origin, request.params)
           break
         case 'set':
-          set(origin, request.params)
+          await set(origin, request.params)
           // update the meta data and return the timestamp
-          result = setMeta(origin, meta)
+          result = await setMeta(origin, meta)
           break
         case 'del':
-          del(origin, request.params)
+          await del(origin, request.params)
           // update the meta data and return the timestamp
-          result = setMeta(origin, meta)
+          result = await setMeta(origin, meta)
           break
         case 'clear':
-          result = clear(origin)
+          result = await clear(origin)
           break
         case 'getAll':
-          result = getAll(origin)
+          result = await getAll(origin)
           break
         case 'setAll':
-          setAll(origin, request.params)
+          await setAll(origin, request.params)
           // update the meta data and return the timestamp
-          result = setMeta(origin, meta)
+          result = await setMeta(origin, meta)
           break
         default:
           break
@@ -59,6 +72,7 @@ export const prepareResponse = (origin, request, client) => {
       error = err.message
     }
   } else {
+    // origin doesn't exist in the store -> app needs to be registered
     error = 'UNREGISTERED'
   }
 
@@ -76,7 +90,7 @@ export const prepareResponse = (origin, request, client) => {
  *
  * @returns {object} Public profile data
  */
-export const user = () => {
+export const user = async () => {
   return getAll(USER)
 }
 
@@ -86,7 +100,7 @@ export const user = () => {
  *
  * @param {object} data Public profile data
  */
-export const updateUser = (data) => {
+export const updateUser = async (data) => {
   return setAll(USER, data)
 }
 
@@ -96,12 +110,12 @@ export const updateUser = (data) => {
  * @param {string} origin The origin of the request
  * @param {object} params An object with key and value
  */
-export const set = (origin, params) => {
+export const set = async (origin, params) => {
     // TODO throttle writing to once per second
-  let data = getAll(origin)
+  let data = await getAll(origin)
   data[params.key] = params.value
   // persist data in the store
-  store.setItem(origin, JSON.stringify(data))
+  return store.setItem(origin, data)
 }
 
 /**
@@ -113,12 +127,12 @@ export const set = (origin, params) => {
  * @param   {object} params An object with an array of keys
  * @returns {*|*[]}  Either a single value, or an array
  */
-export const get = (origin, params) => {
+export const get = async (origin, params) => {
   let data, result, value
 
   result = []
 
-  data = getAll(origin)
+  data = await getAll(origin)
 
   for (let i = 0; i < params.keys.length; i++) {
     try {
@@ -138,13 +152,13 @@ export const get = (origin, params) => {
  * @param {string} origin The origin of the request
  * @param {object} params An object with an array of keys
  */
-export const del = (origin, params) => {
-  let data = getAll(origin)
+export const del = async (origin, params) => {
+  let data = await getAll(origin)
   for (let i = 0; i < params.keys.length; i++) {
     delete data[params.keys[i]]
   }
-  // persist data in th
-  store.setItem(origin, JSON.stringify(data))
+  // persist data in the store
+  return store.setItem(origin, data)
 }
 
 /**
@@ -152,18 +166,16 @@ export const del = (origin, params) => {
  *
  * @param {string} key The element to clear from localStorage
  */
-export const clear = (key) => {
-  store.removeItem(key)
+export const clear = async (key) => {
+  return store.removeItem(key)
 }
 
 /**
  * Clears all store items.
  *
  */
-export const clearAll = () => {
-  for (let i = 0; i < store.length; i++) {
-    store.removeItem(store.key(i))
-  }
+export const clearAll = async () => {
+  return store.clear()
 }
 
 /**
@@ -172,13 +184,13 @@ export const clearAll = () => {
  * @param   {string} origin The origin of the request
  * @returns {object} The data corresponding to the origin
  */
-export const getAll = (origin) => {
-  const data = store.getItem(origin)
+export const getAll = async (origin) => {
+  const data = await store.getItem(origin)
   if (!data || data.length === 0) {
     return {}
   }
   try {
-    return JSON.parse(data)
+    return data
   } catch (err) {
     return {}
   }
@@ -190,9 +202,9 @@ export const getAll = (origin) => {
  * @param   {string} origin The origin of the request
  * @param   {object} data The data payload
  */
-export const setAll = (origin, data) => {
-  // persist data in th
-  store.setItem(origin, JSON.stringify(data))
+export const setAll = async (origin, data) => {
+  // persist data in the store
+  return store.setItem(origin, data)
 }
 
 /**
@@ -201,7 +213,7 @@ export const setAll = (origin, data) => {
  * @param   {string} origin The origin of the request
  * @return  {object} The metadata corresponding to the origin
  */
-export const getMeta = (origin) => {
+export const getMeta = async (origin) => {
   const item = (origin) ? `${META}_${origin}` : META
   return getAll(item)
 }
@@ -213,7 +225,7 @@ export const getMeta = (origin) => {
  * @param   {object} data Extra metadata
  * @return  {object} The updated meta object
  */
-export const setMeta = (origin, data) => {
+export const setMeta = async (origin, data) => {
   if (!origin) {
     console.log('Missing origin when trying to set meta data.')
     return
@@ -226,14 +238,13 @@ export const setMeta = (origin, data) => {
 
   // Update the root store meta
   if (data.updated) {
-    let rootMeta = getMeta()
+    let rootMeta = await getMeta()
     rootMeta.updated = data.updated
-    store.setItem(META, JSON.stringify(rootMeta))
+    // TODO: wait for this step to finish? (for consistency)
+    await store.setItem(META, rootMeta)
   }
 
-  store.setItem(origin, JSON.stringify(data))
-
-  return data
+  return store.setItem(origin, data)
 }
 
 /**
@@ -241,14 +252,13 @@ export const setMeta = (origin, data) => {
  *
  * @return {array} Array containing all the origins
  */
-export const appList = () => {
-  let list = []
-  for (let i = 0; i < store.length; i++) {
-    if (store.key(i).indexOf('http') === 0) {
-      list.push(store.key(i))
-    }
-  }
-  return list
+export const appList = async () => {
+  return store.keys().then((keys) => {
+    return keys.filter((elem, index, arr) => elem.startsWith('http'))
+  }).catch((err) => {
+    // This code runs if there were any errors
+    console.log(err)
+  })
 }
 
 /**
@@ -256,15 +266,13 @@ export const appList = () => {
  *
  * @return {array} Array containing all the keys
  */
-export const metaList = () => {
-  let list = []
-  for (let i = 0; i < store.length; i++) {
-    const item = store.key(i)
-    if (item.indexOf(`${META}_`) === 0 && item !== META) {
-      list.push(item)
-    }
-  }
-  return list
+export const metaList = async () => {
+  return store.keys().then((keys) => {
+    return keys.filter((elem, index, arr) => elem.startsWith(`${META}_`) && elem !== META)
+  }).catch((err) => {
+    // This code runs if there were any errors
+    console.log(err)
+  })
 }
 
 /**
@@ -272,12 +280,16 @@ export const metaList = () => {
  *
  * @return {object} The contents of the store as key:value pairs
  */
-export const exportJSON = () => {
+export const exportJSON = async () => {
   let data = {}
-  for (let i = 0; i < store.length; i++) {
-    data[store.key(i)] = getAll(store.key(i))
-  }
-  return data
+  return store.iterate((val, key) => {
+    data[key] = val
+  }).then((keys) => {
+    return data
+  }).catch((err) => {
+    // This code runs if there were any errors
+    console.log(err)
+  })
 }
 
 /**
@@ -285,14 +297,14 @@ export const exportJSON = () => {
  *
  * @param {object} data The contents of the store as a JSON object
  */
-export const importJSON = (data) => {
+export const importJSON = async (data) => {
   if (!data || util.isEmpty(data)) {
     return
   }
 
   for (let item in data) {
     if (data.hasOwnProperty(item)) {
-      setAll(item, data[item])
+      await setAll(item, data[item])
     }
   }
 }
@@ -302,29 +314,7 @@ export const importJSON = (data) => {
  *
  * @param {string} item They key to check
  */
-export const exists = (item) => {
-  for (let i = 0; i < store.length; i++) {
-    if (store.key(i) === item) {
-      return true
-    }
-  }
-  return false
-}
-
-/**
- * Check if the storage API is available
- *
- * @return {bool} Availability status
- */
-export const available = () => {
-  let status = true
-  try {
-    if (!store) {
-      status = false
-    }
-  } catch (err) {
-    status = false
-    console.log(err)
-  }
-  return status
+export const exists = async (item) => {
+  const data = await store.getItem(item)
+  return (data !== null && data !== undefined)
 }
