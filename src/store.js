@@ -1,23 +1,30 @@
 import * as util from './util'
 import localForage from 'localforage'
 
-export const VERSION = 1.0
+export const STOREVERSION = 1.0
+export const METAVERSION = 1.0
 export const META = '_meta'
 export const USER = '_user'
 
-const store = localForage
 // Default storage API
-store.config({
+const store = localForage.createInstance({
   driver: localForage.INDEXEDDB,
   name: 'MasqStore',
-  version: VERSION
+  version: STOREVERSION
+})
+
+const metaStore = localForage.createInstance({
+  driver: localForage.INDEXEDDB,
+  name: 'MetaStore',
+  version: METAVERSION
 })
 
 /**
  * Check if the store is ready.
  */
-export const ready = () => {
-  return store.ready()
+export const ready = async () => {
+  await store.ready()
+  return metaStore.ready()
 }
 
 /**
@@ -171,10 +178,21 @@ export const clear = async (key) => {
 }
 
 /**
+ * Clears meta data for a given origin.
+ *
+ * @param {string} origin The origin for which to clear the meta data
+ */
+export const clearMeta = async (origin) => {
+  origin = (origin) ? `${META}_${origin}` : META
+  return metaStore.removeItem(origin)
+}
+
+/**
  * Clears all store items.
  *
  */
 export const clearAll = async () => {
+  await metaStore.clear()
   return store.clear()
 }
 
@@ -184,8 +202,11 @@ export const clearAll = async () => {
  * @param   {string} origin The origin of the request
  * @returns {object} The data corresponding to the origin
  */
-export const getAll = async (origin) => {
-  const data = await store.getItem(origin)
+export const getAll = async (origin, datastore) => {
+  // TODO: do not expect an object if we allow any data to be
+  // stored in the future
+  datastore = datastore || store
+  const data = await datastore.getItem(origin)
   if (!data || data.length === 0) {
     return {}
   }
@@ -214,8 +235,9 @@ export const setAll = async (origin, data) => {
  * @return  {object} The metadata corresponding to the origin
  */
 export const getMeta = async (origin) => {
-  const item = (origin) ? `${META}_${origin}` : META
-  return getAll(item)
+  origin = (origin) ? `${META}_${origin}` : META
+
+  return getAll(origin, metaStore)
 }
 
 /**
@@ -241,10 +263,10 @@ export const setMeta = async (origin, data) => {
     let rootMeta = await getMeta()
     rootMeta.updated = data.updated
     // TODO: wait for this step to finish? (for consistency)
-    await store.setItem(META, rootMeta)
+    await metaStore.setItem(META, rootMeta)
   }
 
-  return store.setItem(origin, data)
+  return metaStore.setItem(origin, data)
 }
 
 /**
@@ -254,7 +276,7 @@ export const setMeta = async (origin, data) => {
  */
 export const appList = async () => {
   return store.keys().then((keys) => {
-    return keys.filter((elem, index, arr) => elem.startsWith('http'))
+    return keys
   }).catch((err) => {
     // This code runs if there were any errors
     console.log(err)
@@ -267,12 +289,23 @@ export const appList = async () => {
  * @return {array} Array containing all the keys
  */
 export const metaList = async () => {
-  return store.keys().then((keys) => {
-    return keys.filter((elem, index, arr) => elem.startsWith(`${META}_`) && elem !== META)
+  return metaStore.keys().then((keys) => {
+    return keys.filter((elem, index, arr) => elem !== META)
   }).catch((err) => {
     // This code runs if there were any errors
     console.log(err)
   })
+}
+
+/**
+ * Unregister an app by removing it (data + meta) from the store
+ */
+export const unregisterApp = async (origin) => {
+  if (!origin || origin.length === 0) {
+    return
+  }
+  await clear(origin)
+  return clearMeta(origin)
 }
 
 /**

@@ -232,6 +232,7 @@ const listener = (message) => {
     // Disable permission check for now since we do not share data between origins
     // } else if (!isPermitted(origin, request.method)) {
     // response.error = `Invalid ${request.method} permissions for ${origin}`
+
     // postMessage requires that the target origin be set to "*" for "file://"
     targetOrigin = (origin === 'file://') ? '*' : origin
     window.parent.postMessage(response, targetOrigin)
@@ -239,7 +240,7 @@ const listener = (message) => {
     request.updated = util.now()
     response = store.prepareResponse(origin, request, clientId).then(function (response) {
       // Also send the changes to other devices if sync is active
-      if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
+      if (['set', 'setAll', 'del'].includes(request.method)) {
         store.getMeta(origin).then(function (meta) {
           if (meta.sync) {
             request.updated = meta.updated
@@ -266,7 +267,7 @@ const listener = (message) => {
  * @returns {bool}   Whether or not the request is permitted
  */
 const isPermitted = (origin, method) => {
-  if (availableMethods.indexOf(method) < 0) {
+  if (!availableMethods.includes(method)) {
     return false
   }
 
@@ -274,7 +275,7 @@ const isPermitted = (origin, method) => {
     return true
   }
 
-  if (acl.getPermissions(origin).indexOf(method) >= 0) {
+  if (acl.getPermissions(origin).includes(method)) {
     return true
   }
 
@@ -343,18 +344,14 @@ export const registerApp = async (url, meta = {}) => {
   }
 }
 
-/**
- * Unregister a given app based on its origin
- *
- * @param   {string} origin The origin of the app
- */
-export const unregisterApp = (origin) => {
-  if (!origin || origin.length === 0) {
-    return
-  }
-  return store.clear(origin).then(function () {
-    return store.clear(`${store.META}_${origin}`)
-  }).catch(function (err) {
-    log(err)
-  })
-}
+// /**
+//  * Unregister a given app based on its origin
+//  *
+//  * @param   {string} origin The origin of the app
+//  */
+// export const unregisterApp = (origin) => {
+  
+//   store.unregisterApp(origin).catch(function (err) {
+//     log(err)
+//   })
+// }

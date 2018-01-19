@@ -247,7 +247,7 @@ var toString = exports.toString = function toString(bytes) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.unregisterApp = exports.registerApp = exports.syncApps = exports.syncApp = exports.init = undefined;
+exports.registerApp = exports.syncApps = exports.syncApp = exports.init = undefined;
 
 var _regenerator = require('babel-runtime/regenerator');
 
@@ -527,6 +527,7 @@ var listener = function listener(message) {
     // Disable permission check for now since we do not share data between origins
     // } else if (!isPermitted(origin, request.method)) {
     // response.error = `Invalid ${request.method} permissions for ${origin}`
+
     // postMessage requires that the target origin be set to "*" for "file://"
     targetOrigin = origin === 'file://' ? '*' : origin;
     window.parent.postMessage(response, targetOrigin);
@@ -534,7 +535,7 @@ var listener = function listener(message) {
     request.updated = util.now();
     response = store.prepareResponse(origin, request, clientId).then(function (response) {
       // Also send the changes to other devices if sync is active
-      if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
+      if (['set', 'setAll', 'del'].includes(request.method)) {
         store.getMeta(origin).then(function (meta) {
           if (meta.sync) {
             request.updated = meta.updated;
@@ -561,7 +562,7 @@ var listener = function listener(message) {
  * @returns {bool}   Whether or not the request is permitted
  */
 var isPermitted = function isPermitted(origin, method) {
-  if (availableMethods.indexOf(method) < 0) {
+  if (!availableMethods.includes(method)) {
     return false;
   }
 
@@ -569,7 +570,7 @@ var isPermitted = function isPermitted(origin, method) {
     return true;
   }
 
-  if (acl.getPermissions(origin).indexOf(method) >= 0) {
+  if (acl.getPermissions(origin).includes(method)) {
     return true;
   }
 
@@ -675,21 +676,17 @@ var registerApp = exports.registerApp = function () {
   };
 }();
 
-/**
- * Unregister a given app based on its origin
- *
- * @param   {string} origin The origin of the app
- */
-var unregisterApp = exports.unregisterApp = function unregisterApp(origin) {
-  if (!origin || origin.length === 0) {
-    return;
-  }
-  return store.clear(origin).then(function () {
-    return store.clear(store.META + '_' + origin);
-  }).catch(function (err) {
-    log(err);
-  });
-};
+// /**
+//  * Unregister a given app based on its origin
+//  *
+//  * @param   {string} origin The origin of the app
+//  */
+// export const unregisterApp = (origin) => {
+
+//   store.unregisterApp(origin).catch(function (err) {
+//     log(err)
+//   })
+// }
 },{"./crypto":1,"./permissions":3,"./store":4,"./sync":5,"./util":6,"babel-runtime/helpers/asyncToGenerator":10,"babel-runtime/regenerator":96}],3:[function(require,module,exports){
 'use strict';
 
@@ -734,7 +731,7 @@ var setPermissions = exports.setPermissions = function setPermissions(origin) {
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.exists = exports.importJSON = exports.exportJSON = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clearAll = exports.clear = exports.del = exports.get = exports.set = exports.updateUser = exports.user = exports.prepareResponse = exports.ready = exports.USER = exports.META = exports.VERSION = undefined;
+exports.exists = exports.importJSON = exports.exportJSON = exports.unregisterApp = exports.metaList = exports.appList = exports.setMeta = exports.getMeta = exports.setAll = exports.getAll = exports.clearAll = exports.clearMeta = exports.clear = exports.del = exports.get = exports.set = exports.updateUser = exports.user = exports.prepareResponse = exports.ready = exports.USER = exports.META = exports.METAVERSION = exports.STOREVERSION = undefined;
 
 var _regenerator = require('babel-runtime/regenerator');
 
@@ -756,24 +753,51 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var VERSION = exports.VERSION = 1.0;
+var STOREVERSION = exports.STOREVERSION = 1.0;
+var METAVERSION = exports.METAVERSION = 1.0;
 var META = exports.META = '_meta';
 var USER = exports.USER = '_user';
 
-var store = _localforage2.default;
 // Default storage API
-store.config({
+var store = _localforage2.default.createInstance({
   driver: _localforage2.default.INDEXEDDB,
   name: 'MasqStore',
-  version: VERSION
+  version: STOREVERSION
+});
+
+var metaStore = _localforage2.default.createInstance({
+  driver: _localforage2.default.INDEXEDDB,
+  name: 'MetaStore',
+  version: METAVERSION
 });
 
 /**
  * Check if the store is ready.
  */
-var ready = exports.ready = function ready() {
-  return store.ready();
-};
+var ready = exports.ready = function () {
+  var _ref = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee() {
+    return _regenerator2.default.wrap(function _callee$(_context) {
+      while (1) {
+        switch (_context.prev = _context.next) {
+          case 0:
+            _context.next = 2;
+            return store.ready();
+
+          case 2:
+            return _context.abrupt('return', metaStore.ready());
+
+          case 3:
+          case 'end':
+            return _context.stop();
+        }
+      }
+    }, _callee, undefined);
+  }));
+
+  return function ready() {
+    return _ref.apply(this, arguments);
+  };
+}();
 
 /**
  * Returns a response object to the application requesting an action.
@@ -784,119 +808,119 @@ var ready = exports.ready = function ready() {
  * @returns {object} Response object
  */
 var prepareResponse = exports.prepareResponse = function () {
-  var _ref = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee(origin, request, client) {
+  var _ref2 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee2(origin, request, client) {
     var error, result, meta, ret;
-    return _regenerator2.default.wrap(function _callee$(_context) {
+    return _regenerator2.default.wrap(function _callee2$(_context2) {
       while (1) {
-        switch (_context.prev = _context.next) {
+        switch (_context2.prev = _context2.next) {
           case 0:
             error = void 0, result = void 0;
-            _context.next = 3;
+            _context2.next = 3;
             return exists(origin);
 
           case 3:
-            if (!_context.sent) {
-              _context.next = 54;
+            if (!_context2.sent) {
+              _context2.next = 54;
               break;
             }
 
-            _context.next = 6;
+            _context2.next = 6;
             return getMeta(origin);
 
           case 6:
-            meta = _context.sent;
+            meta = _context2.sent;
 
             if (request.updated) {
               meta.updated = request.updated;
             }
-            _context.prev = 8;
-            _context.t0 = request.method;
-            _context.next = _context.t0 === 'user' ? 12 : _context.t0 === 'get' ? 16 : _context.t0 === 'set' ? 20 : _context.t0 === 'del' ? 26 : _context.t0 === 'clear' ? 32 : _context.t0 === 'getAll' ? 36 : _context.t0 === 'setAll' ? 40 : 46;
+            _context2.prev = 8;
+            _context2.t0 = request.method;
+            _context2.next = _context2.t0 === 'user' ? 12 : _context2.t0 === 'get' ? 16 : _context2.t0 === 'set' ? 20 : _context2.t0 === 'del' ? 26 : _context2.t0 === 'clear' ? 32 : _context2.t0 === 'getAll' ? 36 : _context2.t0 === 'setAll' ? 40 : 46;
             break;
 
           case 12:
-            _context.next = 14;
+            _context2.next = 14;
             return user();
 
           case 14:
-            result = _context.sent;
-            return _context.abrupt('break', 47);
+            result = _context2.sent;
+            return _context2.abrupt('break', 47);
 
           case 16:
-            _context.next = 18;
+            _context2.next = 18;
             return get(origin, request.params);
 
           case 18:
-            result = _context.sent;
-            return _context.abrupt('break', 47);
+            result = _context2.sent;
+            return _context2.abrupt('break', 47);
 
           case 20:
-            _context.next = 22;
+            _context2.next = 22;
             return set(origin, request.params);
 
           case 22:
-            _context.next = 24;
+            _context2.next = 24;
             return setMeta(origin, meta);
 
           case 24:
-            result = _context.sent;
-            return _context.abrupt('break', 47);
+            result = _context2.sent;
+            return _context2.abrupt('break', 47);
 
           case 26:
-            _context.next = 28;
+            _context2.next = 28;
             return del(origin, request.params);
 
           case 28:
-            _context.next = 30;
+            _context2.next = 30;
             return setMeta(origin, meta);
 
           case 30:
-            result = _context.sent;
-            return _context.abrupt('break', 47);
+            result = _context2.sent;
+            return _context2.abrupt('break', 47);
 
           case 32:
-            _context.next = 34;
+            _context2.next = 34;
             return clear(origin);
 
           case 34:
-            result = _context.sent;
-            return _context.abrupt('break', 47);
+            result = _context2.sent;
+            return _context2.abrupt('break', 47);
 
           case 36:
-            _context.next = 38;
+            _context2.next = 38;
             return getAll(origin);
 
           case 38:
-            result = _context.sent;
-            return _context.abrupt('break', 47);
+            result = _context2.sent;
+            return _context2.abrupt('break', 47);
 
           case 40:
-            _context.next = 42;
+            _context2.next = 42;
             return setAll(origin, request.params);
 
           case 42:
-            _context.next = 44;
+            _context2.next = 44;
             return setMeta(origin, meta);
 
           case 44:
-            result = _context.sent;
-            return _context.abrupt('break', 47);
+            result = _context2.sent;
+            return _context2.abrupt('break', 47);
 
           case 46:
-            return _context.abrupt('break', 47);
+            return _context2.abrupt('break', 47);
 
           case 47:
-            _context.next = 52;
+            _context2.next = 52;
             break;
 
           case 49:
-            _context.prev = 49;
-            _context.t1 = _context['catch'](8);
+            _context2.prev = 49;
+            _context2.t1 = _context2['catch'](8);
 
-            error = _context.t1.message;
+            error = _context2.t1.message;
 
           case 52:
-            _context.next = 55;
+            _context2.next = 55;
             break;
 
           case 54:
@@ -909,18 +933,18 @@ var prepareResponse = exports.prepareResponse = function () {
               error: error,
               result: result
             };
-            return _context.abrupt('return', ret);
+            return _context2.abrupt('return', ret);
 
           case 57:
           case 'end':
-            return _context.stop();
+            return _context2.stop();
         }
       }
-    }, _callee, undefined, [[8, 49]]);
+    }, _callee2, undefined, [[8, 49]]);
   }));
 
   return function prepareResponse(_x, _x2, _x3) {
-    return _ref.apply(this, arguments);
+    return _ref2.apply(this, arguments);
   };
 }();
 
@@ -930,23 +954,23 @@ var prepareResponse = exports.prepareResponse = function () {
  * @returns {object} Public profile data
  */
 var user = exports.user = function () {
-  var _ref2 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee2() {
-    return _regenerator2.default.wrap(function _callee2$(_context2) {
+  var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee3() {
+    return _regenerator2.default.wrap(function _callee3$(_context3) {
       while (1) {
-        switch (_context2.prev = _context2.next) {
+        switch (_context3.prev = _context3.next) {
           case 0:
-            return _context2.abrupt('return', getAll(USER));
+            return _context3.abrupt('return', getAll(USER));
 
           case 1:
           case 'end':
-            return _context2.stop();
+            return _context3.stop();
         }
       }
-    }, _callee2, undefined);
+    }, _callee3, undefined);
   }));
 
   return function user() {
-    return _ref2.apply(this, arguments);
+    return _ref3.apply(this, arguments);
   };
 }();
 
@@ -957,23 +981,23 @@ var user = exports.user = function () {
  * @param {object} data Public profile data
  */
 var updateUser = exports.updateUser = function () {
-  var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee3(data) {
-    return _regenerator2.default.wrap(function _callee3$(_context3) {
+  var _ref4 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee4(data) {
+    return _regenerator2.default.wrap(function _callee4$(_context4) {
       while (1) {
-        switch (_context3.prev = _context3.next) {
+        switch (_context4.prev = _context4.next) {
           case 0:
-            return _context3.abrupt('return', setAll(USER, data));
+            return _context4.abrupt('return', setAll(USER, data));
 
           case 1:
           case 'end':
-            return _context3.stop();
+            return _context4.stop();
         }
       }
-    }, _callee3, undefined);
+    }, _callee4, undefined);
   }));
 
   return function updateUser(_x4) {
-    return _ref3.apply(this, arguments);
+    return _ref4.apply(this, arguments);
   };
 }();
 
@@ -984,32 +1008,32 @@ var updateUser = exports.updateUser = function () {
  * @param {object} params An object with key and value
  */
 var set = exports.set = function () {
-  var _ref4 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee4(origin, params) {
+  var _ref5 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee5(origin, params) {
     var data;
-    return _regenerator2.default.wrap(function _callee4$(_context4) {
+    return _regenerator2.default.wrap(function _callee5$(_context5) {
       while (1) {
-        switch (_context4.prev = _context4.next) {
+        switch (_context5.prev = _context5.next) {
           case 0:
-            _context4.next = 2;
+            _context5.next = 2;
             return getAll(origin);
 
           case 2:
-            data = _context4.sent;
+            data = _context5.sent;
 
             data[params.key] = params.value;
             // persist data in the store
-            return _context4.abrupt('return', store.setItem(origin, data));
+            return _context5.abrupt('return', store.setItem(origin, data));
 
           case 5:
           case 'end':
-            return _context4.stop();
+            return _context5.stop();
         }
       }
-    }, _callee4, undefined);
+    }, _callee5, undefined);
   }));
 
   return function set(_x5, _x6) {
-    return _ref4.apply(this, arguments);
+    return _ref5.apply(this, arguments);
   };
 }();
 
@@ -1023,22 +1047,22 @@ var set = exports.set = function () {
  * @returns {*|*[]}  Either a single value, or an array
  */
 var get = exports.get = function () {
-  var _ref5 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee5(origin, params) {
+  var _ref6 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee6(origin, params) {
     var data, result, value, i;
-    return _regenerator2.default.wrap(function _callee5$(_context5) {
+    return _regenerator2.default.wrap(function _callee6$(_context6) {
       while (1) {
-        switch (_context5.prev = _context5.next) {
+        switch (_context6.prev = _context6.next) {
           case 0:
             data = void 0, result = void 0, value = void 0;
 
 
             result = [];
 
-            _context5.next = 4;
+            _context6.next = 4;
             return getAll(origin);
 
           case 4:
-            data = _context5.sent;
+            data = _context6.sent;
 
 
             for (i = 0; i < params.keys.length; i++) {
@@ -1050,18 +1074,18 @@ var get = exports.get = function () {
               result.push(value);
             }
 
-            return _context5.abrupt('return', result.length > 1 ? result : result[0]);
+            return _context6.abrupt('return', result.length > 1 ? result : result[0]);
 
           case 7:
           case 'end':
-            return _context5.stop();
+            return _context6.stop();
         }
       }
-    }, _callee5, undefined);
+    }, _callee6, undefined);
   }));
 
   return function get(_x7, _x8) {
-    return _ref5.apply(this, arguments);
+    return _ref6.apply(this, arguments);
   };
 }();
 
@@ -1072,34 +1096,34 @@ var get = exports.get = function () {
  * @param {object} params An object with an array of keys
  */
 var del = exports.del = function () {
-  var _ref6 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee6(origin, params) {
+  var _ref7 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee7(origin, params) {
     var data, i;
-    return _regenerator2.default.wrap(function _callee6$(_context6) {
+    return _regenerator2.default.wrap(function _callee7$(_context7) {
       while (1) {
-        switch (_context6.prev = _context6.next) {
+        switch (_context7.prev = _context7.next) {
           case 0:
-            _context6.next = 2;
+            _context7.next = 2;
             return getAll(origin);
 
           case 2:
-            data = _context6.sent;
+            data = _context7.sent;
 
             for (i = 0; i < params.keys.length; i++) {
               delete data[params.keys[i]];
             }
             // persist data in the store
-            return _context6.abrupt('return', store.setItem(origin, data));
+            return _context7.abrupt('return', store.setItem(origin, data));
 
           case 5:
           case 'end':
-            return _context6.stop();
+            return _context7.stop();
         }
       }
-    }, _callee6, undefined);
+    }, _callee7, undefined);
   }));
 
   return function del(_x9, _x10) {
-    return _ref6.apply(this, arguments);
+    return _ref7.apply(this, arguments);
   };
 }();
 
@@ -1109,37 +1133,12 @@ var del = exports.del = function () {
  * @param {string} key The element to clear from localStorage
  */
 var clear = exports.clear = function () {
-  var _ref7 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee7(key) {
-    return _regenerator2.default.wrap(function _callee7$(_context7) {
-      while (1) {
-        switch (_context7.prev = _context7.next) {
-          case 0:
-            return _context7.abrupt('return', store.removeItem(key));
-
-          case 1:
-          case 'end':
-            return _context7.stop();
-        }
-      }
-    }, _callee7, undefined);
-  }));
-
-  return function clear(_x11) {
-    return _ref7.apply(this, arguments);
-  };
-}();
-
-/**
- * Clears all store items.
- *
- */
-var clearAll = exports.clearAll = function () {
-  var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8() {
+  var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(key) {
     return _regenerator2.default.wrap(function _callee8$(_context8) {
       while (1) {
         switch (_context8.prev = _context8.next) {
           case 0:
-            return _context8.abrupt('return', store.clear());
+            return _context8.abrupt('return', store.removeItem(key));
 
           case 1:
           case 'end':
@@ -1149,8 +1148,64 @@ var clearAll = exports.clearAll = function () {
     }, _callee8, undefined);
   }));
 
-  return function clearAll() {
+  return function clear(_x11) {
     return _ref8.apply(this, arguments);
+  };
+}();
+
+/**
+ * Clears meta data for a given origin.
+ *
+ * @param {string} origin The origin for which to clear the meta data
+ */
+var clearMeta = exports.clearMeta = function () {
+  var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee9(origin) {
+    return _regenerator2.default.wrap(function _callee9$(_context9) {
+      while (1) {
+        switch (_context9.prev = _context9.next) {
+          case 0:
+            origin = origin ? META + '_' + origin : META;
+            return _context9.abrupt('return', metaStore.removeItem(origin));
+
+          case 2:
+          case 'end':
+            return _context9.stop();
+        }
+      }
+    }, _callee9, undefined);
+  }));
+
+  return function clearMeta(_x12) {
+    return _ref9.apply(this, arguments);
+  };
+}();
+
+/**
+ * Clears all store items.
+ *
+ */
+var clearAll = exports.clearAll = function () {
+  var _ref10 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee10() {
+    return _regenerator2.default.wrap(function _callee10$(_context10) {
+      while (1) {
+        switch (_context10.prev = _context10.next) {
+          case 0:
+            _context10.next = 2;
+            return metaStore.clear();
+
+          case 2:
+            return _context10.abrupt('return', store.clear());
+
+          case 3:
+          case 'end':
+            return _context10.stop();
+        }
+      }
+    }, _callee10, undefined);
+  }));
+
+  return function clearAll() {
+    return _ref10.apply(this, arguments);
   };
 }();
 
@@ -1161,44 +1216,47 @@ var clearAll = exports.clearAll = function () {
  * @returns {object} The data corresponding to the origin
  */
 var getAll = exports.getAll = function () {
-  var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee9(origin) {
+  var _ref11 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee11(origin, datastore) {
     var data;
-    return _regenerator2.default.wrap(function _callee9$(_context9) {
+    return _regenerator2.default.wrap(function _callee11$(_context11) {
       while (1) {
-        switch (_context9.prev = _context9.next) {
+        switch (_context11.prev = _context11.next) {
           case 0:
-            _context9.next = 2;
-            return store.getItem(origin);
+            // TODO: do not expect an object if we allow any data to be
+            // stored in the future
+            datastore = datastore || store;
+            _context11.next = 3;
+            return datastore.getItem(origin);
 
-          case 2:
-            data = _context9.sent;
+          case 3:
+            data = _context11.sent;
 
             if (!(!data || data.length === 0)) {
-              _context9.next = 5;
+              _context11.next = 6;
               break;
             }
 
-            return _context9.abrupt('return', {});
+            return _context11.abrupt('return', {});
 
-          case 5:
-            _context9.prev = 5;
-            return _context9.abrupt('return', data);
+          case 6:
+            _context11.prev = 6;
+            return _context11.abrupt('return', data);
 
-          case 9:
-            _context9.prev = 9;
-            _context9.t0 = _context9['catch'](5);
-            return _context9.abrupt('return', {});
+          case 10:
+            _context11.prev = 10;
+            _context11.t0 = _context11['catch'](6);
+            return _context11.abrupt('return', {});
 
-          case 12:
+          case 13:
           case 'end':
-            return _context9.stop();
+            return _context11.stop();
         }
       }
-    }, _callee9, undefined, [[5, 9]]);
+    }, _callee11, undefined, [[6, 10]]);
   }));
 
-  return function getAll(_x12) {
-    return _ref9.apply(this, arguments);
+  return function getAll(_x13, _x14) {
+    return _ref11.apply(this, arguments);
   };
 }();
 
@@ -1209,23 +1267,23 @@ var getAll = exports.getAll = function () {
  * @param   {object} data The data payload
  */
 var setAll = exports.setAll = function () {
-  var _ref10 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee10(origin, data) {
-    return _regenerator2.default.wrap(function _callee10$(_context10) {
+  var _ref12 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee12(origin, data) {
+    return _regenerator2.default.wrap(function _callee12$(_context12) {
       while (1) {
-        switch (_context10.prev = _context10.next) {
+        switch (_context12.prev = _context12.next) {
           case 0:
-            return _context10.abrupt('return', store.setItem(origin, data));
+            return _context12.abrupt('return', store.setItem(origin, data));
 
           case 1:
           case 'end':
-            return _context10.stop();
+            return _context12.stop();
         }
       }
-    }, _callee10, undefined);
+    }, _callee12, undefined);
   }));
 
-  return function setAll(_x13, _x14) {
-    return _ref10.apply(this, arguments);
+  return function setAll(_x15, _x16) {
+    return _ref12.apply(this, arguments);
   };
 }();
 
@@ -1236,25 +1294,25 @@ var setAll = exports.setAll = function () {
  * @return  {object} The metadata corresponding to the origin
  */
 var getMeta = exports.getMeta = function () {
-  var _ref11 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee11(origin) {
-    var item;
-    return _regenerator2.default.wrap(function _callee11$(_context11) {
+  var _ref13 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee13(origin) {
+    return _regenerator2.default.wrap(function _callee13$(_context13) {
       while (1) {
-        switch (_context11.prev = _context11.next) {
+        switch (_context13.prev = _context13.next) {
           case 0:
-            item = origin ? META + '_' + origin : META;
-            return _context11.abrupt('return', getAll(item));
+            origin = origin ? META + '_' + origin : META;
+
+            return _context13.abrupt('return', getAll(origin, metaStore));
 
           case 2:
           case 'end':
-            return _context11.stop();
+            return _context13.stop();
         }
       }
-    }, _callee11, undefined);
+    }, _callee13, undefined);
   }));
 
-  return function getMeta(_x15) {
-    return _ref11.apply(this, arguments);
+  return function getMeta(_x17) {
+    return _ref13.apply(this, arguments);
   };
 }();
 
@@ -1266,19 +1324,19 @@ var getMeta = exports.getMeta = function () {
  * @return  {object} The updated meta object
  */
 var setMeta = exports.setMeta = function () {
-  var _ref12 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee12(origin, data) {
+  var _ref14 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee14(origin, data) {
     var rootMeta;
-    return _regenerator2.default.wrap(function _callee12$(_context12) {
+    return _regenerator2.default.wrap(function _callee14$(_context14) {
       while (1) {
-        switch (_context12.prev = _context12.next) {
+        switch (_context14.prev = _context14.next) {
           case 0:
             if (origin) {
-              _context12.next = 3;
+              _context14.next = 3;
               break;
             }
 
             console.log('Missing origin when trying to set meta data.');
-            return _context12.abrupt('return');
+            return _context14.abrupt('return');
 
           case 3:
             if (!data.origin) {
@@ -1290,34 +1348,34 @@ var setMeta = exports.setMeta = function () {
             // Update the root store meta
 
             if (!data.updated) {
-              _context12.next = 12;
+              _context14.next = 12;
               break;
             }
 
-            _context12.next = 8;
+            _context14.next = 8;
             return getMeta();
 
           case 8:
-            rootMeta = _context12.sent;
+            rootMeta = _context14.sent;
 
             rootMeta.updated = data.updated;
             // TODO: wait for this step to finish? (for consistency)
-            _context12.next = 12;
-            return store.setItem(META, rootMeta);
+            _context14.next = 12;
+            return metaStore.setItem(META, rootMeta);
 
           case 12:
-            return _context12.abrupt('return', store.setItem(origin, data));
+            return _context14.abrupt('return', metaStore.setItem(origin, data));
 
           case 13:
           case 'end':
-            return _context12.stop();
+            return _context14.stop();
         }
       }
-    }, _callee12, undefined);
+    }, _callee14, undefined);
   }));
 
-  return function setMeta(_x16, _x17) {
-    return _ref12.apply(this, arguments);
+  return function setMeta(_x18, _x19) {
+    return _ref14.apply(this, arguments);
   };
 }();
 
@@ -1327,15 +1385,13 @@ var setMeta = exports.setMeta = function () {
  * @return {array} Array containing all the origins
  */
 var appList = exports.appList = function () {
-  var _ref13 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee13() {
-    return _regenerator2.default.wrap(function _callee13$(_context13) {
+  var _ref15 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee15() {
+    return _regenerator2.default.wrap(function _callee15$(_context15) {
       while (1) {
-        switch (_context13.prev = _context13.next) {
+        switch (_context15.prev = _context15.next) {
           case 0:
-            return _context13.abrupt('return', store.keys().then(function (keys) {
-              return keys.filter(function (elem, index, arr) {
-                return elem.startsWith('http');
-              });
+            return _context15.abrupt('return', store.keys().then(function (keys) {
+              return keys;
             }).catch(function (err) {
               // This code runs if there were any errors
               console.log(err);
@@ -1343,14 +1399,14 @@ var appList = exports.appList = function () {
 
           case 1:
           case 'end':
-            return _context13.stop();
+            return _context15.stop();
         }
       }
-    }, _callee13, undefined);
+    }, _callee15, undefined);
   }));
 
   return function appList() {
-    return _ref13.apply(this, arguments);
+    return _ref15.apply(this, arguments);
   };
 }();
 
@@ -1360,14 +1416,14 @@ var appList = exports.appList = function () {
  * @return {array} Array containing all the keys
  */
 var metaList = exports.metaList = function () {
-  var _ref14 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee14() {
-    return _regenerator2.default.wrap(function _callee14$(_context14) {
+  var _ref16 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee16() {
+    return _regenerator2.default.wrap(function _callee16$(_context16) {
       while (1) {
-        switch (_context14.prev = _context14.next) {
+        switch (_context16.prev = _context16.next) {
           case 0:
-            return _context14.abrupt('return', store.keys().then(function (keys) {
+            return _context16.abrupt('return', metaStore.keys().then(function (keys) {
               return keys.filter(function (elem, index, arr) {
-                return elem.startsWith(META + '_') && elem !== META;
+                return elem !== META;
               });
             }).catch(function (err) {
               // This code runs if there were any errors
@@ -1376,14 +1432,50 @@ var metaList = exports.metaList = function () {
 
           case 1:
           case 'end':
-            return _context14.stop();
+            return _context16.stop();
         }
       }
-    }, _callee14, undefined);
+    }, _callee16, undefined);
   }));
 
   return function metaList() {
-    return _ref14.apply(this, arguments);
+    return _ref16.apply(this, arguments);
+  };
+}();
+
+/**
+ * Unregister an app by removing it (data + meta) from the store
+ */
+var unregisterApp = exports.unregisterApp = function () {
+  var _ref17 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee17(origin) {
+    return _regenerator2.default.wrap(function _callee17$(_context17) {
+      while (1) {
+        switch (_context17.prev = _context17.next) {
+          case 0:
+            if (!(!origin || origin.length === 0)) {
+              _context17.next = 2;
+              break;
+            }
+
+            return _context17.abrupt('return');
+
+          case 2:
+            _context17.next = 4;
+            return clear(origin);
+
+          case 4:
+            return _context17.abrupt('return', clearMeta(origin));
+
+          case 5:
+          case 'end':
+            return _context17.stop();
+        }
+      }
+    }, _callee17, undefined);
+  }));
+
+  return function unregisterApp(_x20) {
+    return _ref17.apply(this, arguments);
   };
 }();
 
@@ -1393,14 +1485,14 @@ var metaList = exports.metaList = function () {
  * @return {object} The contents of the store as key:value pairs
  */
 var exportJSON = exports.exportJSON = function () {
-  var _ref15 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee15() {
+  var _ref18 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee18() {
     var data;
-    return _regenerator2.default.wrap(function _callee15$(_context15) {
+    return _regenerator2.default.wrap(function _callee18$(_context18) {
       while (1) {
-        switch (_context15.prev = _context15.next) {
+        switch (_context18.prev = _context18.next) {
           case 0:
             data = {};
-            return _context15.abrupt('return', store.iterate(function (val, key) {
+            return _context18.abrupt('return', store.iterate(function (val, key) {
               data[key] = val;
             }).then(function (keys) {
               return data;
@@ -1411,14 +1503,14 @@ var exportJSON = exports.exportJSON = function () {
 
           case 2:
           case 'end':
-            return _context15.stop();
+            return _context18.stop();
         }
       }
-    }, _callee15, undefined);
+    }, _callee18, undefined);
   }));
 
   return function exportJSON() {
-    return _ref15.apply(this, arguments);
+    return _ref18.apply(this, arguments);
   };
 }();
 
@@ -1428,52 +1520,52 @@ var exportJSON = exports.exportJSON = function () {
  * @param {object} data The contents of the store as a JSON object
  */
 var importJSON = exports.importJSON = function () {
-  var _ref16 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee16(data) {
+  var _ref19 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee19(data) {
     var item;
-    return _regenerator2.default.wrap(function _callee16$(_context16) {
+    return _regenerator2.default.wrap(function _callee19$(_context19) {
       while (1) {
-        switch (_context16.prev = _context16.next) {
+        switch (_context19.prev = _context19.next) {
           case 0:
             if (!(!data || util.isEmpty(data))) {
-              _context16.next = 2;
+              _context19.next = 2;
               break;
             }
 
-            return _context16.abrupt('return');
+            return _context19.abrupt('return');
 
           case 2:
-            _context16.t0 = _regenerator2.default.keys(data);
+            _context19.t0 = _regenerator2.default.keys(data);
 
           case 3:
-            if ((_context16.t1 = _context16.t0()).done) {
-              _context16.next = 10;
+            if ((_context19.t1 = _context19.t0()).done) {
+              _context19.next = 10;
               break;
             }
 
-            item = _context16.t1.value;
+            item = _context19.t1.value;
 
             if (!data.hasOwnProperty(item)) {
-              _context16.next = 8;
+              _context19.next = 8;
               break;
             }
 
-            _context16.next = 8;
+            _context19.next = 8;
             return setAll(item, data[item]);
 
           case 8:
-            _context16.next = 3;
+            _context19.next = 3;
             break;
 
           case 10:
           case 'end':
-            return _context16.stop();
+            return _context19.stop();
         }
       }
-    }, _callee16, undefined);
+    }, _callee19, undefined);
   }));
 
-  return function importJSON(_x18) {
-    return _ref16.apply(this, arguments);
+  return function importJSON(_x21) {
+    return _ref19.apply(this, arguments);
   };
 }();
 
@@ -1483,29 +1575,29 @@ var importJSON = exports.importJSON = function () {
  * @param {string} item They key to check
  */
 var exists = exports.exists = function () {
-  var _ref17 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee17(item) {
+  var _ref20 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee20(item) {
     var data;
-    return _regenerator2.default.wrap(function _callee17$(_context17) {
+    return _regenerator2.default.wrap(function _callee20$(_context20) {
       while (1) {
-        switch (_context17.prev = _context17.next) {
+        switch (_context20.prev = _context20.next) {
           case 0:
-            _context17.next = 2;
+            _context20.next = 2;
             return store.getItem(item);
 
           case 2:
-            data = _context17.sent;
-            return _context17.abrupt('return', data !== null && data !== undefined);
+            data = _context20.sent;
+            return _context20.abrupt('return', data !== null && data !== undefined);
 
           case 4:
           case 'end':
-            return _context17.stop();
+            return _context20.stop();
         }
       }
-    }, _callee17, undefined);
+    }, _callee20, undefined);
   }));
 
-  return function exists(_x19) {
-    return _ref17.apply(this, arguments);
+  return function exists(_x22) {
+    return _ref20.apply(this, arguments);
   };
 }();
 },{"./util":6,"babel-runtime/helpers/asyncToGenerator":10,"babel-runtime/regenerator":96,"localforage":97}],5:[function(require,module,exports){
@@ -1807,7 +1899,7 @@ var importHandler = function () {
         switch (_context3.prev = _context3.next) {
           case 0:
             _context3.next = 2;
-            return store.metaList();
+            return store.appList();
 
           case 2:
             apps = _context3.sent;
@@ -1838,7 +1930,7 @@ var importHandler = function () {
 
             app.key = key;
             _context3.next = 17;
-            return store.getAll(key);
+            return store.getMeta(key);
 
           case 17:
             app.data = _context3.sent;
@@ -1960,7 +2052,7 @@ var exportHandler = function () {
             }
 
             _context4.next = 14;
-            return store.setAll(app.key, app.data);
+            return store.setMeta(app.key, app.data);
 
           case 14:
             _context4.next = 16;
@@ -2056,7 +2148,7 @@ var check = exports.check = function () {
             }
 
             _context5.next = 6;
-            return store.metaList();
+            return store.appList();
 
           case 6:
             _context5.t0 = _context5.sent;
@@ -2081,7 +2173,7 @@ var check = exports.check = function () {
             }
 
             _context5.next = 14;
-            return store.getAll(appList[i]);
+            return store.getMeta(appList[i]);
 
           case 14:
             meta = _context5.sent;

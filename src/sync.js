@@ -149,7 +149,7 @@ const checkHandler = async (msg, ws, client = '') => {
  * @param   {string} client The app client ID
  */
 const importHandler = async (msg, ws, client = '') => {
-  const apps = await store.metaList()
+  const apps = await store.appList()
   if (apps.length === 0) {
     return
   }
@@ -157,7 +157,7 @@ const importHandler = async (msg, ws, client = '') => {
   for (let key of apps) {
     let app = {}
     app.key = key
-    app.data = await store.getAll(key)
+    app.data = await store.getMeta(key)
     if (app.data.sync) {
       // clear irrelevant data
       delete app.data.updated
@@ -187,7 +187,7 @@ const exportHandler = async (msg, ws, client = '') => {
   }
   for (let app of msg.list) {
     if (!await store.exists(app.key)) {
-      await store.setAll(app.key, app.data)
+      await store.setMeta(app.key, app.data)
       await store.setAll(app.data.origin, {})
       // Send event to UI app
       const event = new window.CustomEvent('syncapp', { detail: app.data })
@@ -207,13 +207,13 @@ export const check = async (ws, client = '', list) => {
   if (!ws) {
     return
   }
-  const appList = list || await store.metaList()
+  const appList = list || await store.appList()
   if (appList.length === 0) {
     return
   }
 
   for (let i = 0; i < appList.length; i++) {
-    const meta = await store.getAll(appList[i])
+    const meta = await store.getMeta(appList[i])
     if (meta.sync) {
       meta.updated = meta.updated || 0
       const req = {
