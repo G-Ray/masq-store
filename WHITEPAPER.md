@@ -105,7 +105,7 @@ The current architecture suffers from a list of known limitations, which we beli
 
 # Demo
 
-The current proof of concept can be accessed at [https://sync-beta.qwantresearch.com](https://sync-beta.qwantresearch.com). You can try it out with a very [simple test app](https://sync-beta.qwantresearch.com/test/) that increments/decrements a counter. Here are the steps you need to follow:
+The current proof of concept (Masq UI) can be accessed at [https://sync-beta.qwantresearch.com](https://sync-beta.qwantresearch.com). You can try it out with a very [simple test app](https://sync-beta.qwantresearch.com/test/) that increments/decrements a counter. Here are the steps you need to follow:
 
 1. Open the [Masq UI](https://sync-beta.qwantresearch.com) and click the `Enable pairing` button in the Pairing tab on device 1.
 2. Next go to the [test app](https://sync-beta.qwantresearch.com/test/) and click on the registration link. It will open a new window asking for your permission to store data using Masq. 
