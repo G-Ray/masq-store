@@ -95,7 +95,7 @@ const updateHandler = async (msg, client) => {
   }
 
   // Prepare response for the client app
-  await store.prepareResponse(msg.origin, msg.request, client)
+  msg.request = await store.prepareResponse(msg.origin, msg.request, client)
 
   // Force the local client ID
   msg.client = msg.request.client || client

@@ -350,7 +350,6 @@ export const registerApp = async (url, meta = {}) => {
 //  * @param   {string} origin The origin of the app
 //  */
 // export const unregisterApp = (origin) => {
-  
 //   store.unregisterApp(origin).catch(function (err) {
 //     log(err)
 //   })

@@ -682,7 +682,6 @@ var registerApp = exports.registerApp = function () {
 //  * @param   {string} origin The origin of the app
 //  */
 // export const unregisterApp = (origin) => {
-
 //   store.unregisterApp(origin).catch(function (err) {
 //     log(err)
 //   })
@@ -1754,6 +1753,8 @@ var updateHandler = function () {
             return store.prepareResponse(msg.origin, msg.request, client);
 
           case 11:
+            msg.request = _context.sent;
+
 
             // Force the local client ID
             msg.client = msg.request.client || client;
@@ -1768,7 +1769,7 @@ var updateHandler = function () {
               console.log('Could not postMessage to parent:', e);
             }
 
-          case 14:
+          case 15:
           case 'end':
             return _context.stop();
         }
