@@ -81,11 +81,11 @@ export const push = (ws, origin, request) => {
  * @param   {object} msg The contents of the message recived by the WebSocket
  * @param   {string} client The local client ID
  */
-const updateHandler = (msg, client) => {
+const updateHandler = async (msg, client) => {
   if (!msg.origin) {
     return
   }
-  const meta = store.getMeta(msg.origin)
+  const meta = await store.getMeta(msg.origin)
   // no need to update local store if we have updated already to this version
   if (util.inTheFuture(msg.request.updated)) {
     return
@@ -95,17 +95,18 @@ const updateHandler = (msg, client) => {
   }
 
   // Prepare response for the client app
-  store.prepareResponse(msg.origin, msg.request, client)
+  await store.prepareResponse(msg.origin, msg.request, client)
 
   // Force the local client ID
   msg.client = msg.request.client || client
   msg.sync = true
 
   // postMessage requires that the target origin be set to "*" for "file://"
-  const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
-  // only need to notify parent if running in an iframe
-  if (window.self !== window.top) {
+  try {
+    const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
     window.parent.postMessage(msg, targetOrigin)
+  } catch (e) {
+    console.log('Could not postMessage to parent:', e)
   }
 }
 
@@ -116,11 +117,11 @@ const updateHandler = (msg, client) => {
  * @param   {object} ws The WebSocket client
  * @param   {string} client The app client ID
  */
-const checkHandler = (msg, ws, client = '') => {
+const checkHandler = async (msg, ws, client = '') => {
   // Check if we have local data that was changed after the specified data
   // but ignore request if the received timestamp comes from the future
-  if (store.exists(msg.origin) && msg.updated !== undefined && !util.inTheFuture(msg.updated)) {
-    const meta = store.getMeta(msg.origin)
+  if (await store.exists(msg.origin) && msg.updated !== undefined && !util.inTheFuture(msg.updated)) {
+    const meta = await store.getMeta(msg.origin)
     if (msg.updated > meta.updated) {
       // Remote device has fresh data, we need to check and get it
       check(ws, client)
@@ -133,7 +134,7 @@ const checkHandler = (msg, ws, client = '') => {
         request: {
           method: 'setAll',
           updated: meta.updated,
-          params: store.getAll(msg.origin)
+          params: await store.getAll(msg.origin)
         }
       }
       send(ws, resp)
@@ -148,30 +149,29 @@ const checkHandler = (msg, ws, client = '') => {
  * @param   {object} ws The WebSocket client
  * @param   {string} client The app client ID
  */
-const importHandler = (msg, ws, client = '') => {
-  const apps = store.metaList()
+const importHandler = async (msg, ws, client = '') => {
+  const apps = await store.appList()
   if (apps.length === 0) {
     return
   }
   let list = []
-  apps.forEach(key => {
-    const app = {}
+  for (let key of apps) {
+    let app = {}
     app.key = key
-    app.data = store.getAll(key)
+    app.data = await store.getMeta(key)
     if (app.data.sync) {
       // clear irrelevant data
       delete app.data.updated
       app.data.sync = false
       list.push(app)
     }
-  })
+  }
   const resp = {
     type: 'export',
     client: msg.client,
     origin: msg.origin,
     list: list
   }
-  console.log(resp)
   send(ws, resp)
 }
 
@@ -182,19 +182,19 @@ const importHandler = (msg, ws, client = '') => {
  * @param   {object} ws The WebSocket client
  * @param   {string} client The app client ID
  */
-const exportHandler = (msg, ws, client = '') => {
+const exportHandler = async (msg, ws, client = '') => {
   if (!msg.list || !Array.isArray(msg.list)) {
     return
   }
-  msg.list.forEach(app => {
-    if (!store.exists(app.key)) {
-      store.setAll(app.key, app.data)
-      store.setAll(app.data.origin, {})
+  for (let app of msg.list) {
+    if (!await store.exists(app.key)) {
+      await store.setMeta(app.key, app.data)
+      await store.setAll(app.data.origin, {})
       // Send event to UI app
       const event = new window.CustomEvent('syncapp', { detail: app.data })
       window.dispatchEvent(event)
     }
-  })
+  }
 }
 
 /**
@@ -204,17 +204,17 @@ const exportHandler = (msg, ws, client = '') => {
  * @param   {string} client The local client ID
  * @param   {array} list A list of app origins to check
  */
-export const check = (ws, client = '', list) => {
+export const check = async (ws, client = '', list) => {
   if (!ws) {
     return
   }
-  const appList = list || store.metaList()
+  const appList = list || await store.appList()
   if (appList.length === 0) {
     return
   }
 
   for (let i = 0; i < appList.length; i++) {
-    const meta = store.getAll(appList[i])
+    const meta = await store.getMeta(appList[i])
     if (meta.sync) {
       meta.updated = meta.updated || 0
       const req = {
@@ -235,11 +235,11 @@ export const check = (ws, client = '', list) => {
  * @param   {string} client The local client ID
  * @param   {string} origin The app origin to check
  */
-export const checkOne = (ws, client = '', origin) => {
+export const checkOne = async (ws, client = '', origin) => {
   if (!ws) {
     return
   }
-  const meta = store.getMeta(origin)
+  const meta = await store.getMeta(origin)
   meta.updated = meta.updated || 0
   const req = {
     type: 'check',

@@ -3,8 +3,7 @@ import * as store from './store'
 import * as acl from './permissions'
 import * as crypto from './crypto'
 import * as util from './util'
-import { decrypt } from './crypto'
-// Export API
+// Export the store API
 export * from './store'
 
 let parameters = {}
@@ -48,7 +47,35 @@ export const init = (params = {}) => {
   log(`Initializing Masq Store...`)
 
   // Return if storage api is unavailable
-  if (!store.available()) {
+  store.ready().then(function () {
+    // Listen to online/offline events in order to trigger sync
+    if (navigator.onLine !== undefined) {
+      window.addEventListener('online', () => {
+        onlineStatus(true, params)
+      })
+      window.addEventListener('offline', () => {
+        onlineStatus(false, params)
+      })
+
+      onlineStatus(navigator.onLine, params)
+    } else {
+      // Cannot detect connection status, try to force connect the first time
+      initWs(params)
+    }
+
+    // Initialize the window event listener for postMessage. This allows us to
+    // communicate with the apps running in the parent window of the <iframe>.
+    if (window.addEventListener) {
+      window.addEventListener('message', listener, false)
+    } else {
+      window.attachEvent('onmessage', listener)
+    }
+    // All set, let the app know we're listening
+    window.parent.postMessage({'cross-storage': 'listening'}, '*')
+
+    log(`Listening to clients...`)
+  }).catch(function (err) {
+    log(err)
     try {
       window.parent.postMessage({'cross-storage': 'unavailable'}, '*')
       return
@@ -56,34 +83,7 @@ export const init = (params = {}) => {
       log(e)
       return e
     }
-  }
-
-  // Listen to online/offline events in order to trigger sync
-  if (navigator.onLine !== undefined) {
-    window.addEventListener('online', () => {
-      onlineStatus(true, params)
-    })
-    window.addEventListener('offline', () => {
-      onlineStatus(false, params)
-    })
-
-    onlineStatus(navigator.onLine, params)
-  } else {
-    // Cannot detect connection status, try to force connect the first time
-    initWs(params)
-  }
-
-  // Initialize the window event listener for postMessage. This allows us to
-  // communicate with the apps running in the parent window of the <iframe>.
-  if (window.addEventListener) {
-    window.addEventListener('message', listener, false)
-  } else {
-    window.attachEvent('onmessage', listener)
-  }
-  // All set, let the app know we're listening
-  window.parent.postMessage({'cross-storage': 'listening'}, '*')
-
-  log(`Listening to clients...`)
+  })
 }
 
 /**
@@ -187,7 +187,7 @@ const initApp = (origin, params) => {
  * @param {MessageEvent} message A message to be processed
  */
 const listener = (message) => {
-  let origin, targetOrigin, request, response
+  let origin, targetOrigin, request
 
   // postMessage returns the string "null" as the origin for "file://"
   origin = (message.origin === 'null') ? 'file://' : message.origin
@@ -223,32 +223,38 @@ const listener = (message) => {
   }
 
   // Init a placeholder response object
-  response = {
+  let response = {
     client: clientId,
     result: {}
   }
 
   if (!request.method) {
-    return
-  // Disable permission check for now since we do not share data between origins
-  // } else if (!isPermitted(origin, request.method)) {
+    // Disable permission check for now since we do not share data between origins
+    // } else if (!isPermitted(origin, request.method)) {
     // response.error = `Invalid ${request.method} permissions for ${origin}`
+
+    // postMessage requires that the target origin be set to "*" for "file://"
+    targetOrigin = (origin === 'file://') ? '*' : origin
+    window.parent.postMessage(response, targetOrigin)
   } else {
     request.updated = util.now()
-    response = store.prepareResponse(origin, request, clientId)
-    // Also send the changes to other devices if sync is active
-    if (['set', 'setAll', 'del'].indexOf(request.method) >= 0) {
-      var meta = store.getMeta(origin)
-      if (meta.sync) {
-        request.updated = meta.updated
-        sync.push(wsClient, origin, request)
+    response = store.prepareResponse(origin, request, clientId).then(function (response) {
+      // Also send the changes to other devices if sync is active
+      if (['set', 'setAll', 'del'].includes(request.method)) {
+        store.getMeta(origin).then(function (meta) {
+          if (meta.sync) {
+            request.updated = meta.updated
+            sync.push(wsClient, origin, request)
+          }
+        })
       }
-    }
+      // postMessage requires that the target origin be set to "*" for "file://"
+      targetOrigin = (origin === 'file://') ? '*' : origin
+      window.parent.postMessage(response, targetOrigin)
+    }).catch(function (err) {
+      log(err)
+    })
   }
-
-  // postMessage requires that the target origin be set to "*" for "file://"
-  targetOrigin = (origin === 'file://') ? '*' : origin
-  window.parent.postMessage(response, targetOrigin)
 }
 
 /**
@@ -261,7 +267,7 @@ const listener = (message) => {
  * @returns {bool}   Whether or not the request is permitted
  */
 const isPermitted = (origin, method) => {
-  if (availableMethods.indexOf(method) < 0) {
+  if (!availableMethods.includes(method)) {
     return false
   }
 
@@ -269,7 +275,7 @@ const isPermitted = (origin, method) => {
     return true
   }
 
-  if (acl.getPermissions(origin).indexOf(method) >= 0) {
+  if (acl.getPermissions(origin).includes(method)) {
     return true
   }
 
@@ -320,16 +326,16 @@ export const syncApps = () => {
  * @param   {string} url The URL of the app
  * @param   {object} meta An object containing additional meta data for the app
  */
-export const registerApp = (url, meta = {}) => {
+export const registerApp = async (url, meta = {}) => {
   if (url && url.length > 0) {
     const origin = util.getOrigin(url)
-    if (!store.exists(origin)) {
-      store.setAll(origin, {})
+    if (!await store.exists(origin)) {
+      await store.setAll(origin, {})
 
       meta.origin = origin
       meta.permissions = meta.permissions || defaultPermissions
 
-      const updatedMeta = store.setMeta(origin, meta)
+      const updatedMeta = await store.setMeta(origin, meta)
       // Trigger sync if this was a new app we just added
       sync.checkOne(wsClient, clientId, origin)
       log(`Registered app:`, origin)
@@ -338,15 +344,14 @@ export const registerApp = (url, meta = {}) => {
   }
 }
 
-/**
- * Unregister a given app based on its origin
- *
- * @param   {string} origin The origin of the app
- */
-export const unregisterApp = (origin) => {
-  if (!origin || origin.length === 0) {
-    return
-  }
-  store.clear(origin)
-  store.clear(`${store.META}_${origin}`)
-}
+// /**
+//  * Unregister a given app based on its origin
+//  *
+//  * @param   {string} origin The origin of the app
+//  */
+// export const unregisterApp = (origin) => {
+  
+//   store.unregisterApp(origin).catch(function (err) {
+//     log(err)
+//   })
+// }
