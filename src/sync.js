@@ -102,8 +102,12 @@ const updateHandler = async (msg, client) => {
   msg.sync = true
 
   // postMessage requires that the target origin be set to "*" for "file://"
-  const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
-  window.parent.postMessage(msg, targetOrigin)
+  try {
+    const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
+    window.parent.postMessage(msg, targetOrigin)
+  } catch (e) {
+    console.log('Could not postMessage to parent:', e)
+  }
 }
 
 /**

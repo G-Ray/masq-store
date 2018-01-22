@@ -1760,11 +1760,15 @@ var updateHandler = function () {
             msg.sync = true;
 
             // postMessage requires that the target origin be set to "*" for "file://"
-            targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
+            try {
+              targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
 
-            window.parent.postMessage(msg, targetOrigin);
+              window.parent.postMessage(msg, targetOrigin);
+            } catch (e) {
+              console.log('Could not postMessage to parent:', e);
+            }
 
-          case 15:
+          case 14:
           case 'end':
             return _context.stop();
         }
