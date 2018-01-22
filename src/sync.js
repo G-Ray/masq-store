@@ -103,10 +103,7 @@ const updateHandler = async (msg, client) => {
 
   // postMessage requires that the target origin be set to "*" for "file://"
   const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
-  // only need to notify parent if running in an iframe
-  if (window.self !== window.top) {
-    window.parent.postMessage(msg, targetOrigin)
-  }
+  window.parent.postMessage(msg, targetOrigin)
 }
 
 /**
