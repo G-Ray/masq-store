@@ -1343,8 +1343,11 @@ var setMeta = exports.setMeta = function () {
               data.origin = origin;
             }
 
-            origin = origin === META ? META : META + '_' + origin;
-
+            if (origin === META) {
+              origin = META;
+            } else if (!origin.startsWith(META)) {
+              origin = META + '_' + origin;
+            }
             // Update the root store meta
 
             if (!data.updated) {
@@ -1715,7 +1718,7 @@ var push = exports.push = function push(ws, origin, request) {
  */
 var updateHandler = function () {
   var _ref = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee(msg, client) {
-    var meta, targetOrigin;
+    var meta, event, targetOrigin;
     return _regenerator2.default.wrap(function _callee$(_context) {
       while (1) {
         switch (_context.prev = _context.next) {
@@ -1760,15 +1763,17 @@ var updateHandler = function () {
             msg.sync = true;
 
             // postMessage requires that the target origin be set to "*" for "file://"
-            try {
+            event = new window.CustomEvent('sync', { detail: msg });
+
+            window.dispatchEvent(event);
+            // also postMessage to parent
+            if (window.self !== window.top) {
               targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
 
               window.parent.postMessage(msg, targetOrigin);
-            } catch (e) {
-              console.log('Could not postMessage to parent:', e);
             }
 
-          case 14:
+          case 16:
           case 'end':
             return _context.stop();
         }
