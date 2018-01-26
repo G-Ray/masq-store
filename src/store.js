@@ -256,8 +256,11 @@ export const setMeta = async (origin, data) => {
     data.origin = origin
   }
 
-  origin = (origin === META) ? META : `${META}_${origin}`
-
+  if (origin === META) {
+    origin = META
+  } else if (!origin.startsWith(META)) {
+    origin = `${META}_${origin}`
+  }
   // Update the root store meta
   if (data.updated) {
     let rootMeta = await getMeta()
