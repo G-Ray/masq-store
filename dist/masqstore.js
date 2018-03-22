@@ -339,38 +339,40 @@ var init = exports.init = function init() {
 
   log('Initializing Masq Store...');
 
+  parameters.listener = parameters.listener || window;
+
   // Return if storage api is unavailable
   store.ready().then(function () {
     // Listen to online/offline events in order to trigger sync
     if (navigator.onLine !== undefined) {
-      window.addEventListener('online', function () {
-        onlineStatus(true, params);
+      parameters.listener.addEventListener('online', function () {
+        onlineStatus(true, parameters);
       });
-      window.addEventListener('offline', function () {
-        onlineStatus(false, params);
+      parameters.listener.addEventListener('offline', function () {
+        onlineStatus(false, parameters);
       });
 
-      onlineStatus(navigator.onLine, params);
+      onlineStatus(navigator.onLine, parameters);
     } else {
       // Cannot detect connection status, try to force connect the first time
-      initWs(params);
+      initWs(parameters);
     }
 
-    // Initialize the window event listener for postMessage. This allows us to
-    // communicate with the apps running in the parent window of the <iframe>.
-    if (window.addEventListener) {
-      window.addEventListener('message', listener, false);
+    // Initialize the event listener for postMessage. This allows us to
+    // communicate with the apps running in the parent.
+    if (parameters.listener.addEventListener) {
+      parameters.listener.addEventListener('message', listener, false);
     } else {
-      window.attachEvent('onmessage', listener);
+      parameters.listener.attachEvent('onmessage', listener);
     }
     // All set, let the app know we're listening
-    window.parent.postMessage({ 'cross-storage': 'listening' }, '*');
+    parameters.listener.parent.postMessage({ 'cross-storage': 'listening' }, '*');
 
     log('Listening to clients...');
   }).catch(function (err) {
     log(err);
     try {
-      window.parent.postMessage({ 'cross-storage': 'unavailable' }, '*');
+      parameters.listener.parent.postMessage({ 'cross-storage': 'unavailable' }, '*');
       return;
     } catch (e) {
       log(e);
@@ -407,7 +409,7 @@ var initWs = function initWs(params) {
   };
 
   log('Initializing WebSocket with params:', params);
-  sync.initWSClient(params.syncserver, params.syncroom).then(function (ws) {
+  sync.initWSClient(params).then(function (ws) {
     wsClient = ws;
     if (params.cryptoKey) {
       wsClient.cryptoKey = crypto.hexStringToBuffer(params.cryptoKey);
@@ -459,7 +461,7 @@ var initWs = function initWs(params) {
 /**
  * Initialize the data store for the app origin.
  */
-var initApp = function initApp(origin, params) {
+var initApp = function initApp(origin) {
   console.log('Initializing app ' + origin);
   // permissionList = params.permissions || []
 
@@ -468,7 +470,7 @@ var initApp = function initApp(origin, params) {
     registerApp(origin);
   }
 
-  window.parent.postMessage({ 'cross-storage': 'ready' }, origin);
+  parameters.listener.postMessage({ 'cross-storage': 'ready' }, origin);
 };
 
 /**
@@ -503,7 +505,7 @@ var listener = function listener(message) {
 
   // Handle polling for a ready message
   if (request['cross-storage'] === 'poll') {
-    window.parent.postMessage({ 'cross-storage': 'ready' }, message.origin);
+    parameters.listener.postMessage({ 'cross-storage': 'ready' }, message.origin);
     return;
   }
 
@@ -530,7 +532,7 @@ var listener = function listener(message) {
 
     // postMessage requires that the target origin be set to "*" for "file://"
     targetOrigin = origin === 'file://' ? '*' : origin;
-    window.parent.postMessage(response, targetOrigin);
+    parameters.listener.postMessage(response, targetOrigin);
   } else {
     request.updated = util.now();
     response = store.prepareResponse(origin, request, clientId).then(function (response) {
@@ -545,7 +547,7 @@ var listener = function listener(message) {
       }
       // postMessage requires that the target origin be set to "*" for "file://"
       targetOrigin = origin === 'file://' ? '*' : origin;
-      window.parent.postMessage(response, targetOrigin);
+      parameters.listener.postMessage(response, targetOrigin);
     }).catch(function (err) {
       log(err);
     });
@@ -1637,15 +1639,16 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function initWSClient(server, room) {
+function initWSClient(params) {
   return new Promise(function (resolve, reject) {
     // const wsUrl = url.resolve(server, room)
-    if (!server || !room) {
+    if (!params.syncserver || !params.syncroom) {
       return reject(new Error('No WebSocket server or room provided.'));
     }
-    var wsUrl = window.URL !== undefined ? new window.URL(room, server) : server + room;
+    var wsUrl = window.URL !== undefined ? new window.URL(params.syncroom, params.syncserver) : params.syncserver + params.syncroom;
 
     var ws = new window.WebSocket(wsUrl);
+    ws.params = params;
 
     ws.onopen = function () {
       console.log('Connected to Sync server at ' + wsUrl);
@@ -1673,7 +1676,7 @@ function initWSClient(server, room) {
 var handleMessage = exports.handleMessage = function handleMessage(ws, msg, client) {
   switch (msg.type) {
     case 'sync':
-      updateHandler(msg, client);
+      updateHandler(msg, ws, client);
       break;
     case 'check':
       checkHandler(msg, ws, client);
@@ -1714,10 +1717,11 @@ var push = exports.push = function push(ws, origin, request) {
  * Handle incoming data updates and propagate the changes to the client app.
  *
  * @param   {object} msg The contents of the message recived by the WebSocket
+ * @param   {object} ws The WebSocket client
  * @param   {string} client The local client ID
  */
 var updateHandler = function () {
-  var _ref = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee(msg, client) {
+  var _ref = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee(msg, ws, client) {
     var meta, event, targetOrigin;
     return _regenerator2.default.wrap(function _callee$(_context) {
       while (1) {
@@ -1765,15 +1769,12 @@ var updateHandler = function () {
             // postMessage requires that the target origin be set to "*" for "file://"
             event = new window.CustomEvent('sync', { detail: msg });
 
-            window.dispatchEvent(event);
-            // also postMessage to parent
-            if (window.self !== window.top) {
-              targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
+            ws.params.listener.dispatchEvent(event);
+            targetOrigin = msg.origin === 'file://' ? '*' : msg.origin;
 
-              window.parent.postMessage(msg, targetOrigin);
-            }
+            ws.params.listener.postMessage(msg, targetOrigin);
 
-          case 16:
+          case 17:
           case 'end':
             return _context.stop();
         }
@@ -1781,7 +1782,7 @@ var updateHandler = function () {
     }, _callee, undefined);
   }));
 
-  return function updateHandler(_x, _x2) {
+  return function updateHandler(_x, _x2, _x3) {
     return _ref.apply(this, arguments);
   };
 }();
@@ -1882,7 +1883,7 @@ var checkHandler = function () {
     }, _callee2, undefined);
   }));
 
-  return function checkHandler(_x4, _x5) {
+  return function checkHandler(_x5, _x6) {
     return _ref2.apply(this, arguments);
   };
 }();
@@ -2005,7 +2006,7 @@ var importHandler = function () {
     }, _callee3, undefined, [[9, 24, 28, 36], [29,, 31, 35]]);
   }));
 
-  return function importHandler(_x7, _x8) {
+  return function importHandler(_x8, _x9) {
     return _ref3.apply(this, arguments);
   };
 }();
@@ -2068,7 +2069,7 @@ var exportHandler = function () {
             // Send event to UI app
             event = new window.CustomEvent('syncapp', { detail: app.data });
 
-            window.dispatchEvent(event);
+            ws.params.listener.dispatchEvent(event);
 
           case 18:
             _iteratorNormalCompletion2 = true;
@@ -2117,7 +2118,7 @@ var exportHandler = function () {
     }, _callee4, undefined, [[5, 23, 27, 35], [28,, 30, 34]]);
   }));
 
-  return function exportHandler(_x10, _x11) {
+  return function exportHandler(_x11, _x12) {
     return _ref4.apply(this, arguments);
   };
 }();
@@ -2209,7 +2210,7 @@ var check = exports.check = function () {
     }, _callee5, undefined);
   }));
 
-  return function check(_x13) {
+  return function check(_x14) {
     return _ref5.apply(this, arguments);
   };
 }();
@@ -2262,7 +2263,7 @@ var checkOne = exports.checkOne = function () {
     }, _callee6, undefined);
   }));
 
-  return function checkOne(_x15) {
+  return function checkOne(_x16) {
     return _ref6.apply(this, arguments);
   };
 }();

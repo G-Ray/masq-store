@@ -4,15 +4,16 @@ import * as util from './util'
 import * as store from './store'
 import * as crypto from './crypto'
 
-export function initWSClient (server, room) {
+export function initWSClient (params) {
   return new Promise((resolve, reject) => {
     // const wsUrl = url.resolve(server, room)
-    if (!server || !room) {
+    if (!params.syncserver || !params.syncroom) {
       return reject(new Error(`No WebSocket server or room provided.`))
     }
-    const wsUrl = (window.URL !== undefined) ? new window.URL(room, server) : server + room
+    const wsUrl = (window.URL !== undefined) ? new window.URL(params.syncroom, params.syncserver) : params.syncserver + params.syncroom
 
-    const ws = new window.WebSocket(wsUrl)
+    let ws = new window.WebSocket(wsUrl)
+    ws.params = params
 
     ws.onopen = () => {
       console.log(`Connected to Sync server at ${wsUrl}`)
@@ -38,7 +39,7 @@ export function initWSClient (server, room) {
 export const handleMessage = (ws, msg, client) => {
   switch (msg.type) {
     case 'sync':
-      updateHandler(msg, client)
+      updateHandler(msg, ws, client)
       break
     case 'check':
       checkHandler(msg, ws, client)
@@ -79,9 +80,10 @@ export const push = (ws, origin, request) => {
  * Handle incoming data updates and propagate the changes to the client app.
  *
  * @param   {object} msg The contents of the message recived by the WebSocket
+ * @param   {object} ws The WebSocket client
  * @param   {string} client The local client ID
  */
-const updateHandler = async (msg, client) => {
+const updateHandler = async (msg, ws, client) => {
   if (!msg.origin) {
     return
   }
@@ -103,12 +105,9 @@ const updateHandler = async (msg, client) => {
 
   // postMessage requires that the target origin be set to "*" for "file://"
   const event = new window.CustomEvent('sync', { detail: msg })
-  window.dispatchEvent(event)
-  // also postMessage to parent
-  if (window.self !== window.top) {
-    const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
-    window.parent.postMessage(msg, targetOrigin)
-  }
+  ws.params.listener.dispatchEvent(event)
+  const targetOrigin = (msg.origin === 'file://') ? '*' : msg.origin
+  ws.params.listener.postMessage(msg, targetOrigin)
 }
 
 /**
@@ -193,7 +192,7 @@ const exportHandler = async (msg, ws, client = '') => {
       await store.setAll(app.data.origin, {})
       // Send event to UI app
       const event = new window.CustomEvent('syncapp', { detail: app.data })
-      window.dispatchEvent(event)
+      ws.params.listener.dispatchEvent(event)
     }
   }
 }

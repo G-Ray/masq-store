@@ -46,38 +46,40 @@ export const init = (params = {}) => {
 
   log(`Initializing Masq Store...`)
 
+  parameters.listener = parameters.listener || window
+
   // Return if storage api is unavailable
   store.ready().then(function () {
     // Listen to online/offline events in order to trigger sync
     if (navigator.onLine !== undefined) {
-      window.addEventListener('online', () => {
-        onlineStatus(true, params)
+      parameters.listener.addEventListener('online', () => {
+        onlineStatus(true, parameters)
       })
-      window.addEventListener('offline', () => {
-        onlineStatus(false, params)
+      parameters.listener.addEventListener('offline', () => {
+        onlineStatus(false, parameters)
       })
 
-      onlineStatus(navigator.onLine, params)
+      onlineStatus(navigator.onLine, parameters)
     } else {
       // Cannot detect connection status, try to force connect the first time
-      initWs(params)
+      initWs(parameters)
     }
 
-    // Initialize the window event listener for postMessage. This allows us to
-    // communicate with the apps running in the parent window of the <iframe>.
-    if (window.addEventListener) {
-      window.addEventListener('message', listener, false)
+    // Initialize the event listener for postMessage. This allows us to
+    // communicate with the apps running in the parent.
+    if (parameters.listener.addEventListener) {
+      parameters.listener.addEventListener('message', listener, false)
     } else {
-      window.attachEvent('onmessage', listener)
+      parameters.listener.attachEvent('onmessage', listener)
     }
     // All set, let the app know we're listening
-    window.parent.postMessage({'cross-storage': 'listening'}, '*')
+    parameters.listener.parent.postMessage({'cross-storage': 'listening'}, '*')
 
     log(`Listening to clients...`)
   }).catch(function (err) {
     log(err)
     try {
-      window.parent.postMessage({'cross-storage': 'unavailable'}, '*')
+      parameters.listener.parent.postMessage({'cross-storage': 'unavailable'}, '*')
       return
     } catch (e) {
       log(e)
@@ -114,7 +116,7 @@ const initWs = (params) => {
   }
 
   log('Initializing WebSocket with params:', params)
-  sync.initWSClient(params.syncserver, params.syncroom).then((ws) => {
+  sync.initWSClient(params).then((ws) => {
     wsClient = ws
     if (params.cryptoKey) {
       wsClient.cryptoKey = crypto.hexStringToBuffer(params.cryptoKey)
@@ -166,7 +168,7 @@ const initWs = (params) => {
 /**
  * Initialize the data store for the app origin.
  */
-const initApp = (origin, params) => {
+const initApp = (origin) => {
   console.log(`Initializing app ${origin}`)
   // permissionList = params.permissions || []
 
@@ -175,7 +177,7 @@ const initApp = (origin, params) => {
     registerApp(origin)
   }
 
-  window.parent.postMessage({'cross-storage': 'ready'}, origin)
+  parameters.listener.postMessage({'cross-storage': 'ready'}, origin)
 }
 
 /**
@@ -208,7 +210,7 @@ const listener = (message) => {
 
   // Handle polling for a ready message
   if (request['cross-storage'] === 'poll') {
-    window.parent.postMessage({'cross-storage': 'ready'}, message.origin)
+    parameters.listener.postMessage({'cross-storage': 'ready'}, message.origin)
     return
   }
 
@@ -235,7 +237,7 @@ const listener = (message) => {
 
     // postMessage requires that the target origin be set to "*" for "file://"
     targetOrigin = (origin === 'file://') ? '*' : origin
-    window.parent.postMessage(response, targetOrigin)
+    parameters.listener.postMessage(response, targetOrigin)
   } else {
     request.updated = util.now()
     response = store.prepareResponse(origin, request, clientId).then(function (response) {
@@ -250,7 +252,7 @@ const listener = (message) => {
       }
       // postMessage requires that the target origin be set to "*" for "file://"
       targetOrigin = (origin === 'file://') ? '*' : origin
-      window.parent.postMessage(response, targetOrigin)
+      parameters.listener.postMessage(response, targetOrigin)
     }).catch(function (err) {
       log(err)
     })
@@ -350,7 +352,7 @@ export const registerApp = async (url, meta = {}) => {
 //  * @param   {string} origin The origin of the app
 //  */
 // export const unregisterApp = (origin) => {
-  
+
 //   store.unregisterApp(origin).catch(function (err) {
 //     log(err)
 //   })
