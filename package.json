@@ -1,35 +1,26 @@
 {
-  "name": "masq-store",
-  "version": "1.0.4",
-  "description": "Data store for Masq",
+  "name": "store",
+  "version": "2.0.0",
+  "description": "Masq store ",
   "main": "src/index.js",
   "scripts": {
-    "clean": "rm dist/index.js dist/sync.js dist/store.js dist/util.js dist/permissions.js dist/crypto.js",
-    "build": "./node_modules/.bin/babel ./src --experimental -d ./dist && browserify ./dist/index.js --standalone MasqStore > dist/masqstore.js && npm run clean",
-    "minify": "npm run build && uglifyjs ./dist/masqstore.js -o ./dist/masqstore.min.js --compress --mangle -- ",
-    "dist": "npm run minify",
-    "start": "npm run dist && http-server -p 8081 dist/."
+    "clean": "rm ./dist/index.js && rm ./dist/store.js",
+    "build": "./node_modules/.bin/babel ./*.js --experimental -d ./dist && browserify ./dist/index.js --standalone store> dist/masq-store.js && npm run clean",
+    "test": "jest test/*.test.js --runInBand --verbose --coverage --forceExit",
+    "watch": "jest --watch"
   },
-  "author": {
-    "name": "Andrei Sambra",
-    "email": "a.sambra@qwant.com"
-  },
-  "license": "Apache-2.0",
-  "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-plugin-transform-runtime": "^6.23.0",
-    "babel-polyfill": "^6.26.0",
-    "babel-preset-env": "^1.6.1",
-    "browserify": "^14.5.0",
-    "http-server": "^0.10.0",
-    "uglify-js": "^3.1.10"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/QwantResearch/masq-store.git"
-  },
+  "author": "",
+  "license": "MIT",
   "dependencies": {
-    "localforage": "^1.5.5",
-    "masq-crypto": "0.0.1"
+    "localforage": "^1.7.1",
+    "masq-common": "git+https://github.com/QwantResearch/masq-common.git"
+  },
+  "devDependencies": {
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
+    "babel-runtime": "^6.26.0",
+    "browserify": "^16.1.1",
+    "jest": "^22.3.0"
   }
 }
