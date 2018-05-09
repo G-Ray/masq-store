@@ -7,7 +7,7 @@ import error from 'masq-common/error'
    * @param {string} params.id - The instance id
    * @param {Object} params.storage - The storage interface
    */
-class Store {
+export class Store {
   constructor (id, storage) {
     this.id = id
     this.storage = storage || new this.InMemoryStorage()
@@ -117,4 +117,3 @@ class Store {
 }
 
 export default Store
-export { Store }

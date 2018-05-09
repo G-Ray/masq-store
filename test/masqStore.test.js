@@ -1,4 +1,4 @@
-import MasqStore from '../index'
+import Masq from '../masq'
 import localforage from 'localforage'
 import error from 'masq-common/error'
 import Store from '../store'
@@ -35,7 +35,7 @@ const applications = [
 describe('User management', () => {
   let store = null
   beforeAll(async () => {
-    store = new MasqStore({storage: localforage})
+    store = new Masq({storage: localforage})
   })
   afterAll(async () => {
     await localforage.clear()
@@ -108,7 +108,7 @@ describe('User management', () => {
     })
   })
   it('Should not remove the userList after a new instance', async () => {
-    const newStoreInstance = new MasqStore({storage: localforage})
+    const newStoreInstance = new Masq({storage: localforage})
     await newStoreInstance.init()
     const users = await newStoreInstance.listUsers()
     expect(users).toEqual(await store.listUsers())
@@ -208,7 +208,7 @@ describe('User management', () => {
 describe('App management', () => {
   let store = null
   beforeAll(async () => {
-    store = new MasqStore({storage: localforage})
+    store = new Masq({storage: localforage})
     await store.init()
     await store.createUser(user1)
   })
@@ -338,7 +338,7 @@ describe('Web App direct integration', () => {
   let store = null
   let appData = null
   beforeAll(async () => {
-    store = new MasqStore({storage: localforage})
+    store = new Masq({storage: localforage})
     await store.init()
     await store.createUser(user1)
     await store.signIn(user1.username)
