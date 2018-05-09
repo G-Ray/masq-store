@@ -1,5 +1,5 @@
 {
-  "name": "store",
+  "name": "masq-store",
   "version": "2.0.0",
   "description": "Masq store ",
   "main": "index.js",
