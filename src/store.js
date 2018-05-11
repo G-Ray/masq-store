@@ -1,4 +1,4 @@
-import error from 'masq-common/error'
+import common from 'masq-common'
 
 /**
    * Store
@@ -7,7 +7,7 @@ import error from 'masq-common/error'
    * @param {string} params.id - The instance id
    * @param {Object} params.storage - The storage interface
    */
-export class Store {
+class Store {
   constructor (id, storage) {
     this.id = id
     this.storage = storage || new this.InMemoryStorage()
@@ -20,7 +20,7 @@ export class Store {
         await this.storage.setItem(this.id, {})
       }
     } else {
-      throw error.generateError(error.ERRORS.FUNCTIONNOTDEFINED)
+      throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
     }
   }
 
@@ -41,14 +41,14 @@ export class Store {
   async setItem (key, value) {
     // TODO encrypt
     if (!key || key === '') {
-      throw error.generateError(error.ERRORS.NOVALUE)
+      throw common.generateError(common.ERRORS.NOVALUE)
     }
     if (this.storage.setItem && this.storage.getItem) {
       let inst = await this.storage.getItem(this.id)
       inst[key] = value
       return this.storage.setItem(this.id, inst)
     }
-    throw error.generateError(error.ERRORS.FUNCTIONNOTDEFINED)
+    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
   }
 
   /**
@@ -59,7 +59,7 @@ export class Store {
       let inst = await this.storage.getItem(this.id)
       return Object.keys(inst)
     }
-    throw error.generateError(error.ERRORS.FUNCTIONNOTDEFINED)
+    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
   }
   /**
    * Get an item with the received key.
@@ -67,30 +67,30 @@ export class Store {
   async getItem (key) {
     // TODO decrypt
     if (!key || key === '') {
-      throw error.generateError(error.ERRORS.NOVALUE)
+      throw common.generateError(common.ERRORS.NOVALUE)
     }
     if (this.storage.getItem) {
       let inst = await this.storage.getItem(this.id)
       return inst[key]
     }
-    throw error.generateError(error.ERRORS.FUNCTIONNOTDEFINED)
+    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
   }
   /**
    * Remove an item corresponding to the received key.
    */
   async removeItem (key) {
     if (!key || key === '') {
-      throw error.generateError(error.ERRORS.NOVALUE)
+      throw common.generateError(common.ERRORS.NOVALUE)
     }
     if (this.storage.setItem && this.storage.getItem) {
       let inst = await this.storage.getItem(this.id)
       if (!inst[key]) {
-        throw error.generateError(error.ERRORS.NOVALUE)
+        throw common.generateError(common.ERRORS.NOVALUE)
       }
       delete inst[key]
       return this.storage.setItem(this.id, inst)
     }
-    throw error.generateError(error.ERRORS.FUNCTIONNOTDEFINED)
+    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
   }
 
   /**
@@ -101,7 +101,7 @@ export class Store {
     if (this.storage.setItem) {
       return this.storage.setItem(this.id, {})
     }
-    throw error.generateError(error.ERRORS.FUNCTIONNOTDEFINED)
+    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
   }
 
   /**
@@ -112,8 +112,8 @@ export class Store {
     if (this.storage.getItem) {
       return this.storage.getItem(this.id)
     }
-    throw error.generateError(error.ERRORS.FUNCTIONNOTDEFINED)
+    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
   }
 }
 
-export default Store
+module.exports.Store = Store

@@ -1,7 +1,7 @@
-import Masq from '../masq'
 import localforage from 'localforage'
-import error from 'masq-common/error'
-import Store from '../store'
+import common from 'masq-common'
+import Masq from '../src/masq'
+import Store from '../src/store'
 
 jest.mock('localforage')
 
@@ -35,7 +35,7 @@ const applications = [
 describe('User management', () => {
   let store = null
   beforeAll(async () => {
-    store = new Masq({storage: localforage})
+    store = new Masq.Masq({storage: localforage})
   })
   afterAll(async () => {
     await localforage.clear()
@@ -55,7 +55,7 @@ describe('User management', () => {
     }
     expect.assertions(1)
     await store.createUser(userWithError).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.WRONGPARAMETER)
+      expect(e.name).toEqual(common.ERRORS.WRONGPARAMETER)
     })
   })
 
@@ -67,7 +67,7 @@ describe('User management', () => {
   it('should fail to create a user : existing username', async () => {
     expect.assertions(1)
     await store.createUser(user1).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.EXISTINGUSERNAME)
+      expect(e.name).toEqual(common.ERRORS.EXISTINGUSERNAME)
     })
   })
 
@@ -81,14 +81,14 @@ describe('User management', () => {
   it('Should fail to sign in : no username provided', async () => {
     expect.assertions(1)
     await store.signIn('').catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOUSERNAME)
+      expect(e.name).toEqual(common.ERRORS.NOUSERNAME)
     })
   })
 
   it('Should fail to sign in : username does not exist', async () => {
     expect.assertions(1)
     await store.signIn('a strange username').catch(e => {
-      expect(e.name).toEqual(error.ERRORS.USERNAMENOTFOUND)
+      expect(e.name).toEqual(common.ERRORS.USERNAMENOTFOUND)
     })
   })
 
@@ -104,11 +104,11 @@ describe('User management', () => {
   it('Should sign out', async () => {
     await store.signOut()
     store.getUser().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
   it('Should not remove the userList after a new instance', async () => {
-    const newStoreInstance = new Masq({storage: localforage})
+    const newStoreInstance = new Masq.Masq({storage: localforage})
     await newStoreInstance.init()
     const users = await newStoreInstance.listUsers()
     expect(users).toEqual(await store.listUsers())
@@ -117,21 +117,21 @@ describe('User management', () => {
   it('Should fail to delete a user : not logged', async () => {
     expect.assertions(1)
     await store.deleteUser().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
 
   it('Should fail to get  user public info : not logged', async () => {
     expect.assertions(1)
     await store.getUser().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
 
   it('Should fail to get  user private info : not logged', async () => {
     expect.assertions(1)
     await store.getProfile().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
 
@@ -147,14 +147,14 @@ describe('User management', () => {
     await store.signOut()
     expect.assertions(1)
     await store.setProfile().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
   it('Should fail to set  user private info : empty profile', async () => {
     await store.signIn(user1.username)
     expect.assertions(1)
     await store.setProfile().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
   })
 
@@ -172,7 +172,7 @@ describe('User management', () => {
     await store.signOut()
     expect.assertions(1)
     await store.updateUser(user1).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
 
@@ -192,7 +192,7 @@ describe('User management', () => {
     await store.deleteUser()
     const users = await store.listUsers()
     expect(users['new name']).toBeUndefined()
-    const profile = new Store(curentUser._id, localforage)
+    const profile = new Store.Store(curentUser._id, localforage)
     await profile.init()
     expect(await profile.dumpStore()).toEqual({})
   })
@@ -200,7 +200,7 @@ describe('User management', () => {
   it('Should fail to sign in after a delete', async () => {
     expect.assertions(1)
     await store.signIn('new name').catch(e => {
-      expect(e.name).toEqual(error.ERRORS.USERNAMENOTFOUND)
+      expect(e.name).toEqual(common.ERRORS.USERNAMENOTFOUND)
     })
   })
 })
@@ -208,7 +208,7 @@ describe('User management', () => {
 describe('App management', () => {
   let store = null
   beforeAll(async () => {
-    store = new Masq({storage: localforage})
+    store = new Masq.Masq({storage: localforage})
     await store.init()
     await store.createUser(user1)
   })
@@ -219,21 +219,21 @@ describe('App management', () => {
   it('Should fail to add an application : no logged user', async () => {
     expect.assertions(1)
     await store.addApp(applications[0]).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
 
   it('Should fail to delete an application : not logged', async () => {
     expect.assertions(1)
     await store.deleteApp(applications[0].url).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
 
   it('Should fail to list apps : not logged', async () => {
     expect.assertions(1)
     await store.listApps().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOLOGGEDUSER)
+      expect(e.name).toEqual(common.ERRORS.NOLOGGEDUSER)
     })
   })
 
@@ -250,7 +250,7 @@ describe('App management', () => {
     await store.signIn(user1.username)
     expect.assertions(1)
     await store.addApp(app).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.WRONGPARAMETER)
+      expect(e.name).toEqual(common.ERRORS.WRONGPARAMETER)
     })
   })
 
@@ -275,7 +275,7 @@ describe('App management', () => {
   it('Should fail to update an application : no url', async () => {
     expect.assertions(1)
     await store.updateApp({}).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.WRONGPARAMETER)
+      expect(e.name).toEqual(common.ERRORS.WRONGPARAMETER)
     })
   })
 
@@ -283,7 +283,7 @@ describe('App management', () => {
     expect.assertions(1)
     let app1Updated = {url: 'http://www.qwant.com/music'}
     await store.updateApp(app1Updated).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOEXISTINGKEY)
+      expect(e.name).toEqual(common.ERRORS.NOEXISTINGKEY)
     })
   })
 
@@ -303,13 +303,13 @@ describe('App management', () => {
   it('Should fail to delete an application : no url', async () => {
     expect.assertions(1)
     await store.deleteApp().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.WRONGPARAMETER)
+      expect(e.name).toEqual(common.ERRORS.WRONGPARAMETER)
     })
   })
 
   it('should fail to get an application ID if no token is provided', async () => {
     store.getAppIdByToken().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
   })
 
@@ -338,7 +338,7 @@ describe('Web App direct integration', () => {
   let store = null
   let appData = null
   beforeAll(async () => {
-    store = new Masq({storage: localforage})
+    store = new Masq.Masq({storage: localforage})
     await store.init()
     await store.createUser(user1)
     await store.signIn(user1.username)

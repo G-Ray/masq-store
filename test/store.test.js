@@ -1,13 +1,14 @@
-import Store from '../store'
-import error from 'masq-common/error'
+import Store from '../src/store'
+import common from 'masq-common'
 import localforage from 'localforage'
 
 jest.mock('localforage')
 
+
 describe('Store API using localforage', () => {
   let store = null
   beforeAll(async () => {
-    store = new Store('123', localforage)
+    store = new Store.Store('123', localforage)
   })
   it('should init an empty storage', async () => {
     await store.init()
@@ -15,7 +16,7 @@ describe('Store API using localforage', () => {
   })
   it('should init an existing storage', async () => {
     await store.setItem('foo', 'bar')
-    let store2 = new Store('123', localforage)
+    let store2 = new Store.Store('123', localforage)
     await store2.init()
     const val = await store2.getItem('foo')
     expect(val).toEqual('bar')
@@ -23,34 +24,34 @@ describe('Store API using localforage', () => {
   it('should fail to set an empty/null key', async () => {
     expect.assertions(2)
     await store.setItem('').catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
     await store.setItem().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
   })
   it('should fail to get an empty/null key', async () => {
     expect.assertions(2)
     await store.getItem('').catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
     await store.getItem().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
   })
   it('should fail to remove an empty/null key', async () => {
     expect.assertions(2)
     await store.removeItem('').catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
     await store.removeItem().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
   })
   it('should fail to remove a key that does not exist', async () => {
     expect.assertions(1)
     await store.removeItem('baz').catch(e => {
-      expect(e.name).toEqual(error.ERRORS.NOVALUE)
+      expect(e.name).toEqual(common.ERRORS.NOVALUE)
     })
   })
   it('should set/get a key', async () => {
@@ -84,7 +85,7 @@ describe('Store API using localforage', () => {
 describe('Store API using inMemoryStorage', () => {
   let store = null
   beforeAll(async () => {
-    store = new Store('123')
+    store = new Store.Store('123')
   })
   it('should init an empty storage', async () => {
     await store.init()
@@ -128,12 +129,12 @@ describe('Store API using inMemoryStorage', () => {
 describe('Store API bad interface', () => {
   let store = null
   beforeAll(async () => {
-    store = new Store('123', {})
+    store = new Store.Store('123', {})
   })
   it('should not init', async () => {
     expect.assertions(1)
     await store.init().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.FUNCTIONNOTDEFINED)
+      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
     })
   })
   it('should set a key', async () => {
@@ -141,39 +142,39 @@ describe('Store API bad interface', () => {
     const key = 'hello'
     const value = 'world'
     await store.setItem(key, value).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.FUNCTIONNOTDEFINED)
+      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
     })
   })
   it('should fail to get the previous key', async () => {
     const key = 'hello'
     expect.assertions(1)
     await store.getItem(key).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.FUNCTIONNOTDEFINED)
+      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
     })
   })
   it('should fail to get all storage data', async () => {
     expect.assertions(1)
     await store.dumpStore().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.FUNCTIONNOTDEFINED)
+      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
     })
   })
   it('should fail to remove a key', async () => {
     const key = 'hello'
     expect.assertions(1)
     await store.removeItem(key).catch(e => {
-      expect(e.name).toEqual(error.ERRORS.FUNCTIONNOTDEFINED)
+      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
     })
   })
   it('should fail to clear the storage', async () => {
     expect.assertions(1)
     await store.clear().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.FUNCTIONNOTDEFINED)
+      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
     })
   })
   it('should fail to list keys', async () => {
     expect.assertions(1)
     await store.listKeys().catch(e => {
-      expect(e.name).toEqual(error.ERRORS.FUNCTIONNOTDEFINED)
+      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
     })
   })
 })

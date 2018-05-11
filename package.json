@@ -2,11 +2,12 @@
   "name": "masq-store",
   "version": "2.0.0",
   "description": "Masq store",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "browserify index.js -o masq-store.js -t [ babelify --presets [env] ]",
+    "build": "babel src --presets env --out-file dist/index.js",
     "test": "jest test/*.test.js --runInBand --verbose --coverage --forceExit",
-    "watch": "jest --watch"
+    "watch": "jest --watch",
+    "prepublish": "npm run build"
   },
   "repository": {
     "type": "git",
