@@ -4,11 +4,11 @@ var _store = require('./store');
 
 var _store2 = _interopRequireDefault(_store);
 
-var _Masq = require('./Masq');
+var _masq = require('./masq');
 
-var _Masq2 = _interopRequireDefault(_Masq);
+var _masq2 = _interopRequireDefault(_masq);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 module.exports.Store = _store2.default.Store;
-module.exports.Masq = _Masq2.default.Masq;
+module.exports.Masq = _masq2.default.Masq;

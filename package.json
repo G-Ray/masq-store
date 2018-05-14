@@ -1,6 +1,6 @@
 {
   "name": "masq-store",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Masq store",
   "main": "dist/index.js",
   "scripts": {
