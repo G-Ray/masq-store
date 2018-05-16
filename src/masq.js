@@ -1,6 +1,6 @@
 import Store from './store'
 import common from 'masq-common'
-// import common from 'masq-common'
+import MasqCrypto from 'masq-crypto'
 
 /**
  * Masq store library, allows masq-app to
@@ -85,10 +85,14 @@ class Masq {
     }
   }
   async init () {
+    this.key = await MasqCrypto.utils.deriveKey(this.passphrase)
     this.publicStore = await this.initInstance('public')
     let userList = await this.listUsers()
+    console.log('3.0', userList)
     if (!userList) {
+      console.log('3.1')
       await this.publicStore.setItem('userList', {})
+      console.log('3.2')
     }
   }
 
@@ -111,7 +115,9 @@ class Masq {
     user._id = common.generateUUID()
     users[user.username] = user
     await this.publicStore.setItem('userList', users)
-    this.profileStore = await this.initInstance(user._id)
+    console.log('4.0')
+    this.profileStore = await this.initInstance(user._id, this.key)
+    console.log('4.1')
     await this.profileStore.setItem('appList', {})
     await this.profileStore.setItem('deviceList', {})
     await this.profileStore.setItem('tokenList', {})
@@ -128,11 +134,14 @@ class Masq {
   async deleteUser () {
     this.checkCurrentUser()
     const user = await this.getUser()
+    console.log('6.0')
     let users = await this.publicStore.getItem('userList')
     delete users[user.username]
 
     await this.publicStore.setItem('userList', users)
+    console.log('6.1')
     await this.profileStore.clear()
+    console.log('6.2')
     await this.signOut()
   }
 
@@ -230,7 +239,7 @@ class Masq {
     this._currentUserId = users[username]._id
     // Initialise the profile instance
     if (!this.profileStore) {
-      this.profileStore = await this.initInstance(this._currentUserId)
+      this.profileStore = await this.initInstance(this._currentUserId, this.key)
     }
   }
 
@@ -248,10 +257,18 @@ class Masq {
    * Init an instance of a store (e.g. 'public', user profile, web app store)
    *
    * @param {string} id
+   * @param {Uint8Array} [key] - The encryption key, if encryption enabled
    */
-  async initInstance (id) {
-    const instance = new Store.Store(id, this.storage)
+  async initInstance (id, key) {
+    let aesCipher
+    if (key) {
+      aesCipher = await new MasqCrypto.AES({key: key})
+    }
+    console.log('4.2')
+    const instance = new Store.Store(id, this.storage, aesCipher)
+    console.log('4.3')
     await instance.init()
+    console.log('4.4')
     return instance
   }
 

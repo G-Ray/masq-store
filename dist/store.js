@@ -20,21 +20,26 @@ var _masqCommon = require('masq-common');
 
 var _masqCommon2 = _interopRequireDefault(_masqCommon);
 
+var _masqCrypto = require('masq-crypto');
+
+var _masqCrypto2 = _interopRequireDefault(_masqCrypto);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /**
    * Store
    * @constructor
-   * @param {Object} params - The store params
-   * @param {string} params.id - The instance id
-   * @param {Object} params.storage - The storage interface
+   * @param {string} id - The instance id
+   * @param {Object} storage - The storage interface
+   * @param {Object} [aesCipher] - The aes instance
    */
 var Store = function () {
-  function Store(id, storage) {
+  function Store(id, storage, aesCipher) {
     (0, _classCallCheck3.default)(this, Store);
 
     this.id = id;
     this.storage = storage || new this.InMemoryStorage();
+    this.aesCipher = aesCipher || null;
   }
 
   (0, _createClass3.default)(Store, [{
@@ -121,23 +126,24 @@ var Store = function () {
 
               case 2:
                 if (!(this.storage.setItem && this.storage.getItem)) {
-                  _context2.next = 8;
+                  _context2.next = 9;
                   break;
                 }
 
                 _context2.next = 5;
-                return this.storage.getItem(this.id);
+                return this.getAndDecrypt(this.id);
 
               case 5:
                 inst = _context2.sent;
 
                 inst[key] = value;
-                return _context2.abrupt('return', this.storage.setItem(this.id, inst));
-
-              case 8:
-                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+                _context2.next = 9;
+                return this.encryptAndSet(this.id, inst);
 
               case 9:
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+
+              case 10:
               case 'end':
                 return _context2.stop();
             }
@@ -153,34 +159,26 @@ var Store = function () {
     }()
 
     /**
-     * Return an array of storage keys
+     * Encrypt data and set item to store
      */
 
   }, {
-    key: 'listKeys',
+    key: 'encryptAndSet',
     value: function () {
-      var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee3() {
-        var inst;
+      var _ref3 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee3(key, value) {
+        var ciphertext;
         return _regenerator2.default.wrap(function _callee3$(_context3) {
           while (1) {
             switch (_context3.prev = _context3.next) {
               case 0:
-                if (!this.storage.getItem) {
-                  _context3.next = 5;
-                  break;
-                }
+                _context3.next = 2;
+                return this.aesCipher.encrypt(JSON.stringify(value));
 
-                _context3.next = 3;
-                return this.storage.getItem(this.id);
+              case 2:
+                ciphertext = _context3.sent;
+                return _context3.abrupt('return', this.storage.setItem(key, ciphertext));
 
-              case 3:
-                inst = _context3.sent;
-                return _context3.abrupt('return', Object.keys(inst));
-
-              case 5:
-                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
-
-              case 6:
+              case 4:
               case 'end':
                 return _context3.stop();
             }
@@ -188,8 +186,91 @@ var Store = function () {
         }, _callee3, this);
       }));
 
-      function listKeys() {
+      function encryptAndSet(_x3, _x4) {
         return _ref3.apply(this, arguments);
+      }
+
+      return encryptAndSet;
+    }()
+
+    /**
+     * Get data and decrypt it
+     */
+
+  }, {
+    key: 'getAndDecrypt',
+    value: function () {
+      var _ref4 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee4(key) {
+        var inst, plaintext;
+        return _regenerator2.default.wrap(function _callee4$(_context4) {
+          while (1) {
+            switch (_context4.prev = _context4.next) {
+              case 0:
+                _context4.next = 2;
+                return this.storage.getItem(key);
+
+              case 2:
+                inst = _context4.sent;
+                _context4.next = 5;
+                return this.aesCipher.decrypt(inst);
+
+              case 5:
+                plaintext = _context4.sent;
+                return _context4.abrupt('return', JSON.parse(plaintext));
+
+              case 7:
+              case 'end':
+                return _context4.stop();
+            }
+          }
+        }, _callee4, this);
+      }));
+
+      function getAndDecrypt(_x5) {
+        return _ref4.apply(this, arguments);
+      }
+
+      return getAndDecrypt;
+    }()
+
+    /**
+     * Return an array of storage keys
+     */
+
+  }, {
+    key: 'listKeys',
+    value: function () {
+      var _ref5 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee5() {
+        var inst;
+        return _regenerator2.default.wrap(function _callee5$(_context5) {
+          while (1) {
+            switch (_context5.prev = _context5.next) {
+              case 0:
+                if (!this.storage.getItem) {
+                  _context5.next = 5;
+                  break;
+                }
+
+                _context5.next = 3;
+                return this.getAndDecrypt(this.id);
+
+              case 3:
+                inst = _context5.sent;
+                return _context5.abrupt('return', Object.keys(inst));
+
+              case 5:
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+
+              case 6:
+              case 'end':
+                return _context5.stop();
+            }
+          }
+        }, _callee5, this);
+      }));
+
+      function listKeys() {
+        return _ref5.apply(this, arguments);
       }
 
       return listKeys;
@@ -201,14 +282,14 @@ var Store = function () {
   }, {
     key: 'getItem',
     value: function () {
-      var _ref4 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee4(key) {
+      var _ref6 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee6(key) {
         var inst;
-        return _regenerator2.default.wrap(function _callee4$(_context4) {
+        return _regenerator2.default.wrap(function _callee6$(_context6) {
           while (1) {
-            switch (_context4.prev = _context4.next) {
+            switch (_context6.prev = _context6.next) {
               case 0:
                 if (!(!key || key === '')) {
-                  _context4.next = 2;
+                  _context6.next = 2;
                   break;
                 }
 
@@ -216,30 +297,30 @@ var Store = function () {
 
               case 2:
                 if (!this.storage.getItem) {
-                  _context4.next = 7;
+                  _context6.next = 7;
                   break;
                 }
 
-                _context4.next = 5;
-                return this.storage.getItem(this.id);
+                _context6.next = 5;
+                return this.getAndDecrypt(this.id);
 
               case 5:
-                inst = _context4.sent;
-                return _context4.abrupt('return', inst[key]);
+                inst = _context6.sent;
+                return _context6.abrupt('return', inst[key]);
 
               case 7:
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
 
               case 8:
               case 'end':
-                return _context4.stop();
+                return _context6.stop();
             }
           }
-        }, _callee4, this);
+        }, _callee6, this);
       }));
 
-      function getItem(_x3) {
-        return _ref4.apply(this, arguments);
+      function getItem(_x6) {
+        return _ref6.apply(this, arguments);
       }
 
       return getItem;
@@ -251,14 +332,14 @@ var Store = function () {
   }, {
     key: 'removeItem',
     value: function () {
-      var _ref5 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee5(key) {
+      var _ref7 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee7(key) {
         var inst;
-        return _regenerator2.default.wrap(function _callee5$(_context5) {
+        return _regenerator2.default.wrap(function _callee7$(_context7) {
           while (1) {
-            switch (_context5.prev = _context5.next) {
+            switch (_context7.prev = _context7.next) {
               case 0:
                 if (!(!key || key === '')) {
-                  _context5.next = 2;
+                  _context7.next = 2;
                   break;
                 }
 
@@ -266,18 +347,18 @@ var Store = function () {
 
               case 2:
                 if (!(this.storage.setItem && this.storage.getItem)) {
-                  _context5.next = 10;
+                  _context7.next = 11;
                   break;
                 }
 
-                _context5.next = 5;
-                return this.storage.getItem(this.id);
+                _context7.next = 5;
+                return this.getAndDecrypt(this.id);
 
               case 5:
-                inst = _context5.sent;
+                inst = _context7.sent;
 
                 if (inst[key]) {
-                  _context5.next = 8;
+                  _context7.next = 8;
                   break;
                 }
 
@@ -285,21 +366,22 @@ var Store = function () {
 
               case 8:
                 delete inst[key];
-                return _context5.abrupt('return', this.storage.setItem(this.id, inst));
-
-              case 10:
-                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+                _context7.next = 11;
+                return this.encryptAndSet(this.id, inst);
 
               case 11:
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+
+              case 12:
               case 'end':
-                return _context5.stop();
+                return _context7.stop();
             }
           }
-        }, _callee5, this);
+        }, _callee7, this);
       }));
 
-      function removeItem(_x4) {
-        return _ref5.apply(this, arguments);
+      function removeItem(_x7) {
+        return _ref7.apply(this, arguments);
       }
 
       return removeItem;
@@ -313,31 +395,32 @@ var Store = function () {
   }, {
     key: 'clear',
     value: function () {
-      var _ref6 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee6() {
-        return _regenerator2.default.wrap(function _callee6$(_context6) {
+      var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8() {
+        return _regenerator2.default.wrap(function _callee8$(_context8) {
           while (1) {
-            switch (_context6.prev = _context6.next) {
+            switch (_context8.prev = _context8.next) {
               case 0:
                 if (!this.storage.setItem) {
-                  _context6.next = 2;
+                  _context8.next = 3;
                   break;
                 }
 
-                return _context6.abrupt('return', this.storage.setItem(this.id, {}));
-
-              case 2:
-                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+                _context8.next = 3;
+                return this.encryptAndSet(this.id, {});
 
               case 3:
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+
+              case 4:
               case 'end':
-                return _context6.stop();
+                return _context8.stop();
             }
           }
-        }, _callee6, this);
+        }, _callee8, this);
       }));
 
       function clear() {
-        return _ref6.apply(this, arguments);
+        return _ref8.apply(this, arguments);
       }
 
       return clear;
@@ -351,31 +434,37 @@ var Store = function () {
   }, {
     key: 'dumpStore',
     value: function () {
-      var _ref7 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee7() {
-        return _regenerator2.default.wrap(function _callee7$(_context7) {
+      var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee9() {
+        var inst;
+        return _regenerator2.default.wrap(function _callee9$(_context9) {
           while (1) {
-            switch (_context7.prev = _context7.next) {
+            switch (_context9.prev = _context9.next) {
               case 0:
                 if (!this.storage.getItem) {
-                  _context7.next = 2;
+                  _context9.next = 5;
                   break;
                 }
 
-                return _context7.abrupt('return', this.storage.getItem(this.id));
-
-              case 2:
-                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+                _context9.next = 3;
+                return this.getAndDecrypt(this.id);
 
               case 3:
+                inst = _context9.sent;
+                return _context9.abrupt('return', inst);
+
+              case 5:
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+
+              case 6:
               case 'end':
-                return _context7.stop();
+                return _context9.stop();
             }
           }
-        }, _callee7, this);
+        }, _callee9, this);
       }));
 
       function dumpStore() {
-        return _ref7.apply(this, arguments);
+        return _ref9.apply(this, arguments);
       }
 
       return dumpStore;

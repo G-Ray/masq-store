@@ -24,9 +24,11 @@ var _masqCommon = require('masq-common');
 
 var _masqCommon2 = _interopRequireDefault(_masqCommon);
 
-function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+var _masqCrypto = require('masq-crypto');
 
-// import common from 'masq-common'
+var _masqCrypto2 = _interopRequireDefault(_masqCrypto);
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /**
  * Masq store library, allows masq-app to
@@ -126,25 +128,30 @@ var Masq = function () {
             switch (_context.prev = _context.next) {
               case 0:
                 _context.next = 2;
-                return this.initInstance('public');
+                return _masqCrypto2.default.utils.deriveKey(this.passphrase);
 
               case 2:
-                this.publicStore = _context.sent;
+                this.key = _context.sent;
                 _context.next = 5;
-                return this.listUsers();
+                return this.initInstance('public');
 
               case 5:
+                this.publicStore = _context.sent;
+                _context.next = 8;
+                return this.listUsers();
+
+              case 8:
                 userList = _context.sent;
 
                 if (userList) {
-                  _context.next = 9;
+                  _context.next = 12;
                   break;
                 }
 
-                _context.next = 9;
+                _context.next = 12;
                 return this.publicStore.setItem('userList', {});
 
-              case 9:
+              case 12:
               case 'end':
                 return _context.stop();
             }
@@ -672,25 +679,40 @@ var Masq = function () {
      * Init an instance of a store (e.g. 'public', user profile, web app store)
      *
      * @param {string} id
+     * @param {Uint8Array} [key] - The encryption key, if encryption enabled
      */
 
   }, {
     key: 'initInstance',
     value: function () {
-      var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee9(id) {
-        var instance;
+      var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee9(id, key) {
+        var aesCipher, instance;
         return _regenerator2.default.wrap(function _callee9$(_context9) {
           while (1) {
             switch (_context9.prev = _context9.next) {
               case 0:
-                instance = new _store2.default.Store(id, this.storage);
-                _context9.next = 3;
-                return instance.init();
+                aesCipher = void 0;
 
-              case 3:
-                return _context9.abrupt('return', instance);
+                if (!key) {
+                  _context9.next = 5;
+                  break;
+                }
+
+                _context9.next = 4;
+                return new _masqCrypto2.default.AES({ key: key });
 
               case 4:
+                aesCipher = _context9.sent;
+
+              case 5:
+                instance = new _store2.default.Store(id, this.storage, aesCipher);
+                _context9.next = 8;
+                return instance.init();
+
+              case 8:
+                return _context9.abrupt('return', instance);
+
+              case 9:
               case 'end':
                 return _context9.stop();
             }
@@ -698,7 +720,7 @@ var Masq = function () {
         }, _callee9, this);
       }));
 
-      function initInstance(_x6) {
+      function initInstance(_x6, _x7) {
         return _ref9.apply(this, arguments);
       }
 
@@ -735,7 +757,7 @@ var Masq = function () {
         }, _callee10, this);
       }));
 
-      function deleteInstance(_x7) {
+      function deleteInstance(_x8) {
         return _ref10.apply(this, arguments);
       }
 
@@ -796,7 +818,7 @@ var Masq = function () {
         }, _callee11, this);
       }));
 
-      function getAppIdByToken(_x8) {
+      function getAppIdByToken(_x9) {
         return _ref11.apply(this, arguments);
       }
 
@@ -859,7 +881,7 @@ var Masq = function () {
         }, _callee12, this);
       }));
 
-      function addApp(_x9) {
+      function addApp(_x10) {
         return _ref12.apply(this, arguments);
       }
 
@@ -924,7 +946,7 @@ var Masq = function () {
         }, _callee13, this);
       }));
 
-      function deleteApp(_x10) {
+      function deleteApp(_x11) {
         return _ref13.apply(this, arguments);
       }
 
@@ -979,7 +1001,7 @@ var Masq = function () {
         }, _callee14, this);
       }));
 
-      function updateApp(_x11) {
+      function updateApp(_x12) {
         return _ref14.apply(this, arguments);
       }
 
