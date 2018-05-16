@@ -1,5 +1,4 @@
 import common from 'masq-common'
-import MasqCrypto from 'masq-crypto'
 
 /**
    * Store
@@ -16,7 +15,6 @@ class Store {
   }
 
   async init () {
-    console.log(this.aesCipher)
     if (this.storage.setItem && this.storage.getItem) {
       let inst = await this.getAndDecrypt(this.id)
 
@@ -44,16 +42,13 @@ class Store {
    */
   async setItem (key, value) {
     // TODO encrypt
-    console.log('1.0 welcome to setItem')
     if (!key || key === '') {
       throw common.generateError(common.ERRORS.NOVALUE)
     }
     if (this.storage.setItem && this.storage.getItem) {
       let inst = await this.getAndDecrypt(this.id)
       inst[key] = value
-      console.log('1.1', inst)
       await this.encryptAndSet(this.id, inst)
-      console.log('1.2')
       return
     }
     throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
@@ -124,7 +119,7 @@ class Store {
         throw common.generateError(common.ERRORS.NOVALUE)
       }
       delete inst[key]
-      await this.encryptAndSet(this.id, inst)
+      return this.encryptAndSet(this.id, inst)
     }
     throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
   }
@@ -135,7 +130,6 @@ class Store {
    */
   async clear () {
     if (this.storage.setItem) {
-      console.log('7.0')
       return this.encryptAndSet(this.id, {})
     }
     throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)

@@ -71,7 +71,7 @@ export default class AES {
   }
 
   encrypt (input) {
-    console.log('encrypt receive', input)
+    // console.log('encrypt receive', input)
     let enc = {
       ciphertext: bufferToHexString(toArray(input)),
       iv: bufferToHexString([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
@@ -80,7 +80,7 @@ export default class AES {
   }
 
   decrypt (input) {
-    console.log('decrypt receive', input)
+    // console.log('decrypt receive', input)
     return Promise.resolve(toString(hexStringToBuffer(input.ciphertext)))
   }
 }
