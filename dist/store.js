@@ -20,10 +20,6 @@ var _masqCommon = require('masq-common');
 
 var _masqCommon2 = _interopRequireDefault(_masqCommon);
 
-var _masqCrypto = require('masq-crypto');
-
-var _masqCrypto2 = _interopRequireDefault(_masqCrypto);
-
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 /**
@@ -57,7 +53,7 @@ var Store = function () {
                 }
 
                 _context.next = 3;
-                return this.storage.getItem(this.id);
+                return this.getAndDecrypt(this.id);
 
               case 3:
                 inst = _context.sent;
@@ -68,7 +64,7 @@ var Store = function () {
                 }
 
                 _context.next = 7;
-                return this.storage.setItem(this.id, {});
+                return this.encryptAndSet(this.id, {});
 
               case 7:
                 _context.next = 10;
@@ -126,7 +122,7 @@ var Store = function () {
 
               case 2:
                 if (!(this.storage.setItem && this.storage.getItem)) {
-                  _context2.next = 9;
+                  _context2.next = 10;
                   break;
                 }
 
@@ -141,9 +137,12 @@ var Store = function () {
                 return this.encryptAndSet(this.id, inst);
 
               case 9:
-                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+                return _context2.abrupt('return');
 
               case 10:
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
+
+              case 11:
               case 'end':
                 return _context2.stop();
             }
@@ -171,14 +170,22 @@ var Store = function () {
           while (1) {
             switch (_context3.prev = _context3.next) {
               case 0:
-                _context3.next = 2;
+                if (!this.aesCipher) {
+                  _context3.next = 5;
+                  break;
+                }
+
+                _context3.next = 3;
                 return this.aesCipher.encrypt(JSON.stringify(value));
 
-              case 2:
+              case 3:
                 ciphertext = _context3.sent;
                 return _context3.abrupt('return', this.storage.setItem(key, ciphertext));
 
-              case 4:
+              case 5:
+                return _context3.abrupt('return', this.storage.setItem(key, value));
+
+              case 6:
               case 'end':
                 return _context3.stop();
             }
@@ -211,14 +218,31 @@ var Store = function () {
 
               case 2:
                 inst = _context4.sent;
-                _context4.next = 5;
-                return this.aesCipher.decrypt(inst);
+
+                if (inst) {
+                  _context4.next = 5;
+                  break;
+                }
+
+                return _context4.abrupt('return');
 
               case 5:
+                if (!this.aesCipher) {
+                  _context4.next = 10;
+                  break;
+                }
+
+                _context4.next = 8;
+                return this.aesCipher.decrypt(inst);
+
+              case 8:
                 plaintext = _context4.sent;
                 return _context4.abrupt('return', JSON.parse(plaintext));
 
-              case 7:
+              case 10:
+                return _context4.abrupt('return', inst);
+
+              case 11:
               case 'end':
                 return _context4.stop();
             }
@@ -347,7 +371,7 @@ var Store = function () {
 
               case 2:
                 if (!(this.storage.setItem && this.storage.getItem)) {
-                  _context7.next = 11;
+                  _context7.next = 10;
                   break;
                 }
 
@@ -366,13 +390,12 @@ var Store = function () {
 
               case 8:
                 delete inst[key];
-                _context7.next = 11;
-                return this.encryptAndSet(this.id, inst);
+                return _context7.abrupt('return', this.encryptAndSet(this.id, inst));
 
-              case 11:
+              case 10:
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
 
-              case 12:
+              case 11:
               case 'end':
                 return _context7.stop();
             }
@@ -401,17 +424,16 @@ var Store = function () {
             switch (_context8.prev = _context8.next) {
               case 0:
                 if (!this.storage.setItem) {
-                  _context8.next = 3;
+                  _context8.next = 2;
                   break;
                 }
 
-                _context8.next = 3;
-                return this.encryptAndSet(this.id, {});
+                return _context8.abrupt('return', this.encryptAndSet(this.id, {}));
 
-              case 3:
+              case 2:
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.FUNCTIONNOTDEFINED);
 
-              case 4:
+              case 3:
               case 'end':
                 return _context8.stop();
             }

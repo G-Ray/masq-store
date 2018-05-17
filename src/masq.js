@@ -34,6 +34,7 @@ import MasqCrypto from 'masq-crypto'
  @property {string} firstname - The firstname
  @property {string} lastname - The lastname
  @property {string} image - The link to the profil picture
+ @property {string} passphrase - The passphrase
  */
 
 /**
@@ -53,7 +54,7 @@ const requiredParameterApp = ['name', 'url']
 /**
 * The list of required parameters for an user, used wich common.checkObject function
 */
-const requiredParameterUser = ['username']
+const requiredParameterUser = ['username', 'passphrase']
 
 /**
    * Masq
@@ -85,7 +86,6 @@ class Masq {
     }
   }
   async init () {
-    this.key = await MasqCrypto.utils.deriveKey(this.passphrase)
     this.publicStore = await this.initInstance('public')
     let userList = await this.listUsers()
     if (!userList) {
@@ -112,6 +112,7 @@ class Masq {
     user._id = common.generateUUID()
     users[user.username] = user
     await this.publicStore.setItem('userList', users)
+    this.key = await MasqCrypto.utils.deriveKey(user.passphrase)
     this.profileStore = await this.initInstance(user._id, this.key)
     await this.profileStore.setItem('appList', {})
     await this.profileStore.setItem('deviceList', {})
@@ -216,18 +217,22 @@ class Masq {
    * TODO : we need an authentication system based on PBKDF2.
    *
    * @param {string} username - The username must be the same as during the registration
+   * @param {string} passphrase - The passphrase
    * @returns {Promise}
    *
    */
-  async signIn (username) {
+  async signIn (username, passphrase) {
     if (!username || username === '') {
       throw common.generateError(common.ERRORS.NOUSERNAME)
     }
-
+    if (!passphrase || passphrase === '') {
+      throw common.generateError(common.ERRORS.NOPASSPHRASE)
+    }
     const users = await this.publicStore.getItem('userList')
     if (!users[username]) {
       throw common.generateError(common.ERRORS.USERNAMENOTFOUND)
     }
+    this.key = await MasqCrypto.utils.deriveKey(passphrase)
     this._currentUserId = users[username]._id
     // Initialise the profile instance
     if (!this.profileStore) {

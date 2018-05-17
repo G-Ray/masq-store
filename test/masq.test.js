@@ -7,11 +7,13 @@ import MasqCrypto from 'masq-crypto'
 jest.mock('localforage')
 jest.mock('masq-crypto')
 
+const passphrase = 'hello'
 let user1 = {
   username: 'some username',
   firstname: 'John',
   lastname: 'Doe',
-  image: ''
+  image: '',
+  passphrase: 'hello'
 }
 
 const applications = [
@@ -36,8 +38,9 @@ const applications = [
 
 describe('User management', () => {
   let store = null
+
   beforeAll(async () => {
-    store = new Masq.Masq({storage: localforage, passphrase: 'hello'})
+    store = new Masq.Masq({storage: localforage, passphrase: passphrase})
   })
   afterAll(async () => {
     await localforage.clear()
@@ -52,6 +55,18 @@ describe('User management', () => {
   it('should fail to create a user : no username', async () => {
     let userWithError = {
       username: '',
+      firstname: 'John',
+      lastname: 'Doe',
+      image: ''
+    }
+    expect.assertions(1)
+    await store.createUser(userWithError).catch(e => {
+      expect(e.name).toEqual(common.ERRORS.WRONGPARAMETER)
+    })
+  })
+  it('should fail to create a user : no passphrase', async () => {
+    let userWithError = {
+      username: 'bob',
       firstname: 'John',
       lastname: 'Doe',
       image: ''
@@ -83,20 +98,27 @@ describe('User management', () => {
 
   it('Should fail to sign in : no username provided', async () => {
     expect.assertions(1)
-    await store.signIn('').catch(e => {
+    await store.signIn('', 'secret').catch(e => {
       expect(e.name).toEqual(common.ERRORS.NOUSERNAME)
+    })
+  })
+  it('Should fail to sign in : no passphrase provided', async () => {
+    expect.assertions(1)
+    await store.signIn('bob', '').catch(e => {
+      console.log(e)
+      expect(e.name).toEqual(common.ERRORS.NOPASSPHRASE)
     })
   })
 
   it('Should fail to sign in : username does not exist', async () => {
     expect.assertions(1)
-    await store.signIn('a strange username').catch(e => {
+    await store.signIn('a strange username', 'secret').catch(e => {
       expect(e.name).toEqual(common.ERRORS.USERNAMENOTFOUND)
     })
   })
 
   it('Should sign in', async () => {
-    await store.signIn(user1.username)
+    await store.signIn(user1.username, passphrase)
     let user = await store.getUser()
     expect(user._id).toBeDefined()
     expect(user.username).toEqual(user1.username)
@@ -139,7 +161,7 @@ describe('User management', () => {
   })
 
   it('should return the private user profile', async () => {
-    await store.signIn(user1.username)
+    await store.signIn(user1.username, passphrase)
     const profile = await store.getProfile()
     expect(profile.deviceList).toBeDefined()
     expect(profile.appList).toBeDefined()
@@ -154,7 +176,7 @@ describe('User management', () => {
     })
   })
   it('Should fail to set  user private info : empty profile', async () => {
-    await store.signIn(user1.username)
+    await store.signIn(user1.username, passphrase)
     expect.assertions(1)
     await store.setProfile().catch(e => {
       expect(e.name).toEqual(common.ERRORS.NOVALUE)
@@ -162,7 +184,7 @@ describe('User management', () => {
   })
 
   it('should set the private user profile', async () => {
-    await store.signIn(user1.username)
+    await store.signIn(user1.username, passphrase)
     let profile = await store.getProfile()
     profile.appList['foo'] = {bar: 'baz'}
     await store.setProfile(profile)
@@ -180,7 +202,7 @@ describe('User management', () => {
   })
 
   it('Sould update a user', async () => {
-    await store.signIn(user1.username)
+    await store.signIn(user1.username, passphrase)
     const user1Updated = Object.assign({}, user1)
     user1Updated.username = 'new name'
     let previousUser = await store.getUser()
@@ -203,7 +225,7 @@ describe('User management', () => {
 
   it('Should fail to sign in after a delete', async () => {
     expect.assertions(1)
-    await store.signIn('new name').catch(e => {
+    await store.signIn('new name', 'secret').catch(e => {
       expect(e.name).toEqual(common.ERRORS.USERNAMENOTFOUND)
     })
   })
@@ -251,7 +273,7 @@ describe('App management', () => {
       active: true
     }
 
-    await store.signIn(user1.username)
+    await store.signIn(user1.username, passphrase)
     expect.assertions(1)
     await store.addApp(app).catch(e => {
       expect(e.name).toEqual(common.ERRORS.WRONGPARAMETER)
@@ -346,7 +368,7 @@ describe('Web App direct integration', () => {
     store = new Masq.Masq({storage: localforage})
     await store.init()
     await store.createUser(user1)
-    await store.signIn(user1.username)
+    await store.signIn(user1.username, passphrase)
     const apps = await store.listApps()
     const appId = Object.keys(apps)[0]
     appData = await store.initInstance(appId)

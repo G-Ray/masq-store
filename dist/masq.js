@@ -62,6 +62,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
  @property {string} firstname - The firstname
  @property {string} lastname - The lastname
  @property {string} image - The link to the profil picture
+ @property {string} passphrase - The passphrase
  */
 
 /**
@@ -81,7 +82,7 @@ var requiredParameterApp = ['name', 'url'];
 /**
 * The list of required parameters for an user, used wich common.checkObject function
 */
-var requiredParameterUser = ['username'];
+var requiredParameterUser = ['username', 'passphrase'];
 
 /**
    * Masq
@@ -128,30 +129,25 @@ var Masq = function () {
             switch (_context.prev = _context.next) {
               case 0:
                 _context.next = 2;
-                return _masqCrypto2.default.utils.deriveKey(this.passphrase);
-
-              case 2:
-                this.key = _context.sent;
-                _context.next = 5;
                 return this.initInstance('public');
 
-              case 5:
+              case 2:
                 this.publicStore = _context.sent;
-                _context.next = 8;
+                _context.next = 5;
                 return this.listUsers();
 
-              case 8:
+              case 5:
                 userList = _context.sent;
 
                 if (userList) {
-                  _context.next = 12;
+                  _context.next = 9;
                   break;
                 }
 
-                _context.next = 12;
+                _context.next = 9;
                 return this.publicStore.setItem('userList', {});
 
-              case 12:
+              case 9:
               case 'end':
                 return _context.stop();
             }
@@ -208,25 +204,30 @@ var Masq = function () {
 
               case 10:
                 _context2.next = 12;
-                return this.initInstance(user._id);
+                return _masqCrypto2.default.utils.deriveKey(user.passphrase);
 
               case 12:
-                this.profileStore = _context2.sent;
+                this.key = _context2.sent;
                 _context2.next = 15;
-                return this.profileStore.setItem('appList', {});
+                return this.initInstance(user._id, this.key);
 
               case 15:
-                _context2.next = 17;
+                this.profileStore = _context2.sent;
+                _context2.next = 18;
+                return this.profileStore.setItem('appList', {});
+
+              case 18:
+                _context2.next = 20;
                 return this.profileStore.setItem('deviceList', {});
 
-              case 17:
-                _context2.next = 19;
+              case 20:
+                _context2.next = 22;
                 return this.profileStore.setItem('tokenList', {});
 
-              case 19:
+              case 22:
                 return _context2.abrupt('return', user._id);
 
-              case 20:
+              case 23:
               case 'end':
                 return _context2.stop();
             }
@@ -271,7 +272,6 @@ var Masq = function () {
                 users = _context3.sent;
 
                 delete users[user.username];
-
                 _context3.next = 10;
                 return this.publicStore.setItem('userList', users);
 
@@ -598,6 +598,7 @@ var Masq = function () {
      * TODO : we need an authentication system based on PBKDF2.
      *
      * @param {string} username - The username must be the same as during the registration
+     * @param {string} passphrase - The passphrase
      * @returns {Promise}
      *
      */
@@ -605,7 +606,7 @@ var Masq = function () {
   }, {
     key: 'signIn',
     value: function () {
-      var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(username) {
+      var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(username, passphrase) {
         var users;
         return _regenerator2.default.wrap(function _callee8$(_context8) {
           while (1) {
@@ -619,35 +620,49 @@ var Masq = function () {
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.NOUSERNAME);
 
               case 2:
-                _context8.next = 4;
-                return this.publicStore.getItem('userList');
+                if (!(!passphrase || passphrase === '')) {
+                  _context8.next = 4;
+                  break;
+                }
+
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.NOPASSPHRASE);
 
               case 4:
+                _context8.next = 6;
+                return this.publicStore.getItem('userList');
+
+              case 6:
                 users = _context8.sent;
 
                 if (users[username]) {
-                  _context8.next = 7;
+                  _context8.next = 9;
                   break;
                 }
 
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.USERNAMENOTFOUND);
 
-              case 7:
+              case 9:
+                _context8.next = 11;
+                return _masqCrypto2.default.utils.deriveKey(passphrase);
+
+              case 11:
+                this.key = _context8.sent;
+
                 this._currentUserId = users[username]._id;
                 // Initialise the profile instance
 
                 if (this.profileStore) {
-                  _context8.next = 12;
+                  _context8.next = 17;
                   break;
                 }
 
-                _context8.next = 11;
-                return this.initInstance(this._currentUserId);
+                _context8.next = 16;
+                return this.initInstance(this._currentUserId, this.key);
 
-              case 11:
+              case 16:
                 this.profileStore = _context8.sent;
 
-              case 12:
+              case 17:
               case 'end':
                 return _context8.stop();
             }
@@ -655,7 +670,7 @@ var Masq = function () {
         }, _callee8, this);
       }));
 
-      function signIn(_x5) {
+      function signIn(_x5, _x6) {
         return _ref8.apply(this, arguments);
       }
 
@@ -720,7 +735,7 @@ var Masq = function () {
         }, _callee9, this);
       }));
 
-      function initInstance(_x6, _x7) {
+      function initInstance(_x7, _x8) {
         return _ref9.apply(this, arguments);
       }
 
@@ -757,7 +772,7 @@ var Masq = function () {
         }, _callee10, this);
       }));
 
-      function deleteInstance(_x8) {
+      function deleteInstance(_x9) {
         return _ref10.apply(this, arguments);
       }
 
@@ -818,7 +833,7 @@ var Masq = function () {
         }, _callee11, this);
       }));
 
-      function getAppIdByToken(_x9) {
+      function getAppIdByToken(_x10) {
         return _ref11.apply(this, arguments);
       }
 
@@ -881,7 +896,7 @@ var Masq = function () {
         }, _callee12, this);
       }));
 
-      function addApp(_x10) {
+      function addApp(_x11) {
         return _ref12.apply(this, arguments);
       }
 
@@ -946,7 +961,7 @@ var Masq = function () {
         }, _callee13, this);
       }));
 
-      function deleteApp(_x11) {
+      function deleteApp(_x12) {
         return _ref13.apply(this, arguments);
       }
 
@@ -1001,7 +1016,7 @@ var Masq = function () {
         }, _callee14, this);
       }));
 
-      function updateApp(_x12) {
+      function updateApp(_x13) {
         return _ref14.apply(this, arguments);
       }
 
