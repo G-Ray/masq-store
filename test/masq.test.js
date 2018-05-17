@@ -105,10 +105,16 @@ describe('User management', () => {
   it('Should fail to sign in : no passphrase provided', async () => {
     expect.assertions(1)
     await store.signIn('bob', '').catch(e => {
-      console.log(e)
       expect(e.name).toEqual(common.ERRORS.NOPASSPHRASE)
     })
   })
+  // it('Should fail to sign in : wrong passphrase provided', async () => {
+  //   expect.assertions(1)
+  //   await store.signIn(user1.username, 'wrong').catch(e => {
+  //     console.log(e)
+  //     expect(e.name).toEqual(common.ERRORS.WRONGPASSPHRASE)
+  //   })
+  // })
 
   it('Should fail to sign in : username does not exist', async () => {
     expect.assertions(1)

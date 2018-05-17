@@ -208,26 +208,28 @@ var Masq = function () {
 
               case 12:
                 this.key = _context2.sent;
-                _context2.next = 15;
+
+                console.log(this.key);
+                _context2.next = 16;
                 return this.initInstance(user._id, this.key);
 
-              case 15:
+              case 16:
                 this.profileStore = _context2.sent;
-                _context2.next = 18;
+                _context2.next = 19;
                 return this.profileStore.setItem('appList', {});
 
-              case 18:
-                _context2.next = 20;
+              case 19:
+                _context2.next = 21;
                 return this.profileStore.setItem('deviceList', {});
 
-              case 20:
-                _context2.next = 22;
+              case 21:
+                _context2.next = 23;
                 return this.profileStore.setItem('tokenList', {});
 
-              case 22:
+              case 23:
                 return _context2.abrupt('return', user._id);
 
-              case 23:
+              case 24:
               case 'end':
                 return _context2.stop();
             }
@@ -607,7 +609,7 @@ var Masq = function () {
     key: 'signIn',
     value: function () {
       var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(username, passphrase) {
-        var users;
+        var users, user;
         return _regenerator2.default.wrap(function _callee8$(_context8) {
           while (1) {
             switch (_context8.prev = _context8.next) {
@@ -663,11 +665,26 @@ var Masq = function () {
                 this.profileStore = _context8.sent;
 
               case 17:
+                _context8.prev = 17;
+                _context8.next = 20;
+                return this.getProfile();
+
+              case 20:
+                user = _context8.sent;
+                _context8.next = 26;
+                break;
+
+              case 23:
+                _context8.prev = 23;
+                _context8.t0 = _context8['catch'](17);
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
+
+              case 26:
               case 'end':
                 return _context8.stop();
             }
           }
-        }, _callee8, this);
+        }, _callee8, this, [[17, 23]]);
       }));
 
       function signIn(_x5, _x6) {

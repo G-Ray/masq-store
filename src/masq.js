@@ -238,6 +238,12 @@ class Masq {
     if (!this.profileStore) {
       this.profileStore = await this.initInstance(this._currentUserId, this.key)
     }
+    // test if the passphrase is rigth
+    try {
+      const user = await this.getProfile()
+    } catch (error) {
+      throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
+    }
   }
 
   /**
