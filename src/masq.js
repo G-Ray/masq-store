@@ -70,6 +70,7 @@ class Masq {
     this.storage = params.storage
     this.publicStore = null
     this.profileStore = null
+    this.aesCipher = null
   }
 
   // get key () {
@@ -111,8 +112,13 @@ class Masq {
     // Add a uuid.
     user._id = common.generateUUID()
     users[user.username] = user
-    await this.publicStore.setItem('userList', users)
     this.key = await MasqCrypto.utils.deriveKey(user.passphrase)
+    if (!this.key || this.key.length === 0) {
+      throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
+    }
+
+    delete user.passphrase
+    await this.publicStore.setItem('userList', users)
     this.profileStore = await this.initInstance(user._id, this.key)
     await this.profileStore.setItem('appList', {})
     await this.profileStore.setItem('deviceList', {})
@@ -238,9 +244,10 @@ class Masq {
     if (!this.profileStore) {
       this.profileStore = await this.initInstance(this._currentUserId, this.key)
     }
-    // test if the passphrase is rigth
+    // test if the passphrase is valid
     try {
       const user = await this.getProfile()
+      // TODO add a test to check the key, ex JSON .parse
     } catch (error) {
       throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
     }
@@ -263,12 +270,15 @@ class Masq {
    * @param {Uint8Array} [key] - The encryption key, if encryption enabled
    */
   async initInstance (id, key) {
-    let aesCipher
+    let instance
     if (key) {
-      aesCipher = await new MasqCrypto.AES({key: key})
+      if (!this.aesCipher) {
+        this.aesCipher = await new MasqCrypto.AES({key: key})
+      }
+      instance = new Store.Store(id, this.storage, this.aesCipher)
+    } else {
+      instance = new Store.Store(id, this.storage)
     }
-
-    const instance = new Store.Store(id, this.storage, aesCipher)
     await instance.init()
     return instance
   }

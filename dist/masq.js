@@ -102,6 +102,7 @@ var Masq = function () {
     this.storage = params.storage;
     this.publicStore = null;
     this.profileStore = null;
+    this.aesCipher = null;
   }
 
   // get key () {
@@ -208,28 +209,26 @@ var Masq = function () {
 
               case 12:
                 this.key = _context2.sent;
-
-                console.log(this.key);
-                _context2.next = 16;
+                _context2.next = 15;
                 return this.initInstance(user._id, this.key);
 
-              case 16:
+              case 15:
                 this.profileStore = _context2.sent;
-                _context2.next = 19;
+                _context2.next = 18;
                 return this.profileStore.setItem('appList', {});
 
-              case 19:
-                _context2.next = 21;
+              case 18:
+                _context2.next = 20;
                 return this.profileStore.setItem('deviceList', {});
 
-              case 21:
-                _context2.next = 23;
+              case 20:
+                _context2.next = 22;
                 return this.profileStore.setItem('tokenList', {});
 
-              case 23:
+              case 22:
                 return _context2.abrupt('return', user._id);
 
-              case 24:
+              case 23:
               case 'end':
                 return _context2.stop();
             }
@@ -718,33 +717,45 @@ var Masq = function () {
     key: 'initInstance',
     value: function () {
       var _ref9 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee9(id, key) {
-        var aesCipher, instance;
+        var instance;
         return _regenerator2.default.wrap(function _callee9$(_context9) {
           while (1) {
             switch (_context9.prev = _context9.next) {
               case 0:
-                aesCipher = void 0;
+                instance = void 0;
 
                 if (!key) {
-                  _context9.next = 5;
+                  _context9.next = 9;
                   break;
                 }
 
-                _context9.next = 4;
+                if (this.aesCipher) {
+                  _context9.next = 6;
+                  break;
+                }
+
+                _context9.next = 5;
                 return new _masqCrypto2.default.AES({ key: key });
 
-              case 4:
-                aesCipher = _context9.sent;
-
               case 5:
-                instance = new _store2.default.Store(id, this.storage, aesCipher);
-                _context9.next = 8;
-                return instance.init();
+                this.aesCipher = _context9.sent;
 
-              case 8:
-                return _context9.abrupt('return', instance);
+              case 6:
+                instance = new _store2.default.Store(id, this.storage, this.aesCipher);
+                _context9.next = 10;
+                break;
 
               case 9:
+                instance = new _store2.default.Store(id, this.storage);
+
+              case 10:
+                _context9.next = 12;
+                return instance.init();
+
+              case 12:
+                return _context9.abrupt('return', instance);
+
+              case 13:
               case 'end':
                 return _context9.stop();
             }

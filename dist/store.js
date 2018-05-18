@@ -170,22 +170,27 @@ var Store = function () {
           while (1) {
             switch (_context3.prev = _context3.next) {
               case 0:
+                // If encrypted store
+                console.log('reveive to encrypt ', key, value);
+
                 if (!this.aesCipher) {
-                  _context3.next = 5;
+                  _context3.next = 7;
                   break;
                 }
 
-                _context3.next = 3;
+                _context3.next = 4;
                 return this.aesCipher.encrypt(JSON.stringify(value));
 
-              case 3:
+              case 4:
                 ciphertext = _context3.sent;
+
+                console.log('return ', ciphertext);
                 return _context3.abrupt('return', this.storage.setItem(key, ciphertext));
 
-              case 5:
+              case 7:
                 return _context3.abrupt('return', this.storage.setItem(key, value));
 
-              case 6:
+              case 8:
               case 'end':
                 return _context3.stop();
             }
@@ -213,36 +218,39 @@ var Store = function () {
           while (1) {
             switch (_context4.prev = _context4.next) {
               case 0:
-                _context4.next = 2;
+                console.log('reveive to decrypt ', key);
+                _context4.next = 3;
                 return this.storage.getItem(key);
 
-              case 2:
+              case 3:
                 inst = _context4.sent;
 
                 if (inst) {
-                  _context4.next = 5;
+                  _context4.next = 6;
                   break;
                 }
 
                 return _context4.abrupt('return');
 
-              case 5:
+              case 6:
                 if (!this.aesCipher) {
-                  _context4.next = 10;
+                  _context4.next = 12;
                   break;
                 }
 
-                _context4.next = 8;
+                _context4.next = 9;
                 return this.aesCipher.decrypt(inst);
 
-              case 8:
+              case 9:
                 plaintext = _context4.sent;
+
+                console.log('return ', plaintext);
                 return _context4.abrupt('return', JSON.parse(plaintext));
 
-              case 10:
+              case 12:
                 return _context4.abrupt('return', inst);
 
-              case 11:
+              case 13:
               case 'end':
                 return _context4.stop();
             }

@@ -59,8 +59,10 @@ class Store {
    */
   async encryptAndSet (key, value) {
     // If encrypted store
+    console.log('reveive to encrypt ', key, value)
     if (this.aesCipher) {
       const ciphertext = await this.aesCipher.encrypt(JSON.stringify(value))
+      console.log('return ', ciphertext)
       return this.storage.setItem(key, ciphertext)
     }
     return this.storage.setItem(key, value)
@@ -70,6 +72,7 @@ class Store {
    * Get data and decrypt it
    */
   async getAndDecrypt (key) {
+    console.log('reveive to decrypt ', key)
     const inst = await this.storage.getItem(key)
     // If encrypted store
     if (!inst) {
@@ -77,6 +80,7 @@ class Store {
     }
     if (this.aesCipher) {
       const plaintext = await this.aesCipher.decrypt(inst)
+      console.log('return ', plaintext)
       return JSON.parse(plaintext)
     }
     return inst
