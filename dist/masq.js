@@ -201,34 +201,45 @@ var Masq = function () {
                 user._id = _masqCommon2.default.generateUUID();
                 users[user.username] = user;
                 _context2.next = 10;
-                return this.publicStore.setItem('userList', users);
-
-              case 10:
-                _context2.next = 12;
                 return _masqCrypto2.default.utils.deriveKey(user.passphrase);
 
-              case 12:
+              case 10:
                 this.key = _context2.sent;
-                _context2.next = 15;
+
+                if (!(!this.key || this.key.length === 0)) {
+                  _context2.next = 13;
+                  break;
+                }
+
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
+
+              case 13:
+
+                delete user.passphrase;
+                _context2.next = 16;
+                return this.publicStore.setItem('userList', users);
+
+              case 16:
+                _context2.next = 18;
                 return this.initInstance(user._id, this.key);
 
-              case 15:
+              case 18:
                 this.profileStore = _context2.sent;
-                _context2.next = 18;
+                _context2.next = 21;
                 return this.profileStore.setItem('appList', {});
 
-              case 18:
-                _context2.next = 20;
+              case 21:
+                _context2.next = 23;
                 return this.profileStore.setItem('deviceList', {});
 
-              case 20:
-                _context2.next = 22;
+              case 23:
+                _context2.next = 25;
                 return this.profileStore.setItem('tokenList', {});
 
-              case 22:
+              case 25:
                 return _context2.abrupt('return', user._id);
 
-              case 23:
+              case 26:
               case 'end':
                 return _context2.stop();
             }
