@@ -201,7 +201,7 @@ var Masq = function () {
                 user._id = _masqCommon2.default.generateUUID();
                 users[user.username] = user;
                 _context2.next = 10;
-                return _masqCrypto2.default.utils.deriveKey(user.passphrase);
+                return _masqCrypto2.default.utils.deriveKey(user.password);
 
               case 10:
                 this.key = _context2.sent;
@@ -215,7 +215,7 @@ var Masq = function () {
 
               case 13:
 
-                delete user.passphrase;
+                delete user.password;
                 _context2.next = 16;
                 return this.publicStore.setItem('userList', users);
 
