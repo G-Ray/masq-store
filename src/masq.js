@@ -112,12 +112,12 @@ class Masq {
     // Add a uuid.
     user._id = common.generateUUID()
     users[user.username] = user
-    this.key = await MasqCrypto.utils.deriveKey(user.passphrase)
+    this.key = await MasqCrypto.utils.deriveKey(user.password)
     if (!this.key || this.key.length === 0) {
       throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
     }
 
-    delete user.passphrase
+    delete user.password
     await this.publicStore.setItem('userList', users)
     this.profileStore = await this.initInstance(user._id, this.key)
     await this.profileStore.setItem('appList', {})
