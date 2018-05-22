@@ -82,7 +82,7 @@ var requiredParameterApp = ['name', 'url'];
 /**
 * The list of required parameters for an user, used wich common.checkObject function
 */
-var requiredParameterUser = ['username', 'passphrase'];
+var requiredParameterUser = ['username', 'password'];
 
 /**
    * Masq

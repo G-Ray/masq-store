@@ -54,7 +54,7 @@ const requiredParameterApp = ['name', 'url']
 /**
 * The list of required parameters for an user, used wich common.checkObject function
 */
-const requiredParameterUser = ['username', 'passphrase']
+const requiredParameterUser = ['username', 'password']
 
 /**
    * Masq
