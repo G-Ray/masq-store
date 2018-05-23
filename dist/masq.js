@@ -204,7 +204,7 @@ var Masq = function () {
 
                 user['salt'] = salt;
                 console.log(user);
-                console.log(_masqCrypto2.default.utils);
+                console.log(_masqCrypto2.default);
                 _context2.next = 14;
                 return _masqCrypto2.default.utils.deriveKey(user.password, salt);
 

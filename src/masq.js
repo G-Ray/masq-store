@@ -115,7 +115,7 @@ class Masq {
     const salt = window.crypto.getRandomValues(new Uint8Array(16))
     user['salt'] = salt
     console.log(user)
-    console.log(MasqCrypto.utils)
+    console.log(MasqCrypto)
     let derivedkey = await MasqCrypto.utils.deriveKey(user.password, salt)
     console.log(derivedkey)
     if (!this.key || this.key.length === 0) {
