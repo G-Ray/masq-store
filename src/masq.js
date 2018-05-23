@@ -112,17 +112,28 @@ class Masq {
     // Add a uuid.
     user._id = common.generateUUID()
     users[user.username] = user
-    this.key = await MasqCrypto.utils.deriveKey(user.password)
+    const salt = window.crypto.getRandomValues(new Uint8Array(16))
+    user['salt'] = salt
+    let derivedkey = await MasqCrypto.utils.deriveKey(user.password, salt)
     if (!this.key || this.key.length === 0) {
       throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
     }
-
+    // AES instance just to wrap the master key with the derived key
+    const aesCipher = await new MasqCrypto.AES({key: derivedkey})
     delete user.password
+    const masterKey = await aesCipher.genAESKey()
+    // AES instance for data encryption
+    const masterKeyRaw = await aesCipher.exportKeyRaw(masterKey)
+    const encryptedMasterKey = await aesCipher.encrypt(masterKeyRaw)
+    user['encryptedMasterKey'] = encryptedMasterKey
+
     await this.publicStore.setItem('userList', users)
-    this.profileStore = await this.initInstance(user._id, this.key)
+    this.profileStore = await this.initInstance(user._id, masterKeyRaw)
     await this.profileStore.setItem('appList', {})
     await this.profileStore.setItem('deviceList', {})
     await this.profileStore.setItem('tokenList', {})
+    await this.signOut()
+
     return user._id
   }
 
@@ -174,17 +185,16 @@ class Masq {
   }
 
   /**
-   * Return the logged user public info
+   * Return the user public info
    *
    * @returns {Promise<MasqUser>} - The logged user
    *
    */
-  async getUser () {
-    this.checkCurrentUser()
+  async getUser (username) {
     // Get the user public info
     let users = await this.publicStore.getItem('userList')
     for (let key of Object.keys(users)) {
-      if (users[key]._id === this._currentUserId) {
+      if (users[key].username === username) {
         return users[key]
       }
     }
@@ -234,11 +244,12 @@ class Masq {
     if (!passphrase || passphrase === '') {
       throw common.generateError(common.ERRORS.NOPASSPHRASE)
     }
+    const userInfo = await this.getUser(username)
     const users = await this.publicStore.getItem('userList')
     if (!users[username]) {
       throw common.generateError(common.ERRORS.USERNAMENOTFOUND)
     }
-    this.key = await MasqCrypto.utils.deriveKey(passphrase)
+    this.key = await MasqCrypto.utils.deriveKey(passphrase, userInfo.salt)
     this._currentUserId = users[username]._id
     // Initialise the profile instance
     if (!this.profileStore) {
@@ -261,6 +272,7 @@ class Masq {
     // TODO delete passphrase from memory
     this._currentUserId = null
     this.profileStore = null
+    this.aesCipher = null
   }
 
   /**
