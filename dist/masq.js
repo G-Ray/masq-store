@@ -177,7 +177,7 @@ var Masq = function () {
     key: 'createUser',
     value: function () {
       var _ref2 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee2(user) {
-        var users;
+        var users, salt, derivedkey, aesCipher, masterKey, masterKeyRaw, encryptedMasterKey;
         return _regenerator2.default.wrap(function _callee2$(_context2) {
           while (1) {
             switch (_context2.prev = _context2.next) {
@@ -200,46 +200,76 @@ var Masq = function () {
                 // Add a uuid.
                 user._id = _masqCommon2.default.generateUUID();
                 users[user.username] = user;
-                _context2.next = 10;
-                return _masqCrypto2.default.utils.deriveKey(user.password);
+                salt = window.crypto.getRandomValues(new Uint8Array(16));
 
-              case 10:
-                this.key = _context2.sent;
+                user['salt'] = salt;
+                _context2.next = 12;
+                return _masqCrypto2.default.utils.deriveKey(user.password, salt);
+
+              case 12:
+                derivedkey = _context2.sent;
 
                 if (!(!this.key || this.key.length === 0)) {
-                  _context2.next = 13;
+                  _context2.next = 15;
                   break;
                 }
 
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
 
-              case 13:
+              case 15:
+                _context2.next = 17;
+                return new _masqCrypto2.default.AES({ key: derivedkey });
+
+              case 17:
+                aesCipher = _context2.sent;
 
                 delete user.password;
-                _context2.next = 16;
-                return this.publicStore.setItem('userList', users);
-
-              case 16:
-                _context2.next = 18;
-                return this.initInstance(user._id, this.key);
-
-              case 18:
-                this.profileStore = _context2.sent;
                 _context2.next = 21;
-                return this.profileStore.setItem('appList', {});
+                return aesCipher.genAESKey();
 
               case 21:
-                _context2.next = 23;
+                masterKey = _context2.sent;
+                _context2.next = 24;
+                return aesCipher.exportKeyRaw(masterKey);
+
+              case 24:
+                masterKeyRaw = _context2.sent;
+                _context2.next = 27;
+                return aesCipher.encrypt(masterKeyRaw);
+
+              case 27:
+                encryptedMasterKey = _context2.sent;
+
+                user['encryptedMasterKey'] = encryptedMasterKey;
+
+                _context2.next = 31;
+                return this.publicStore.setItem('userList', users);
+
+              case 31:
+                _context2.next = 33;
+                return this.initInstance(user._id, masterKeyRaw);
+
+              case 33:
+                this.profileStore = _context2.sent;
+                _context2.next = 36;
+                return this.profileStore.setItem('appList', {});
+
+              case 36:
+                _context2.next = 38;
                 return this.profileStore.setItem('deviceList', {});
 
-              case 23:
-                _context2.next = 25;
+              case 38:
+                _context2.next = 40;
                 return this.profileStore.setItem('tokenList', {});
 
-              case 25:
+              case 40:
+                _context2.next = 42;
+                return this.signOut();
+
+              case 42:
                 return _context2.abrupt('return', user._id);
 
-              case 26:
+              case 43:
               case 'end':
                 return _context2.stop();
             }
@@ -376,7 +406,7 @@ var Masq = function () {
     }
 
     /**
-     * Return the logged user public info
+     * Return the user public info
      *
      * @returns {Promise<MasqUser>} - The logged user
      *
@@ -385,89 +415,87 @@ var Masq = function () {
   }, {
     key: 'getUser',
     value: function () {
-      var _ref5 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee5() {
+      var _ref5 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee5(username) {
         var users, _iteratorNormalCompletion, _didIteratorError, _iteratorError, _iterator, _step, key;
 
         return _regenerator2.default.wrap(function _callee5$(_context5) {
           while (1) {
             switch (_context5.prev = _context5.next) {
               case 0:
-                this.checkCurrentUser();
-                // Get the user public info
-                _context5.next = 3;
+                _context5.next = 2;
                 return this.publicStore.getItem('userList');
 
-              case 3:
+              case 2:
                 users = _context5.sent;
                 _iteratorNormalCompletion = true;
                 _didIteratorError = false;
                 _iteratorError = undefined;
-                _context5.prev = 7;
+                _context5.prev = 6;
                 _iterator = Object.keys(users)[Symbol.iterator]();
 
-              case 9:
+              case 8:
                 if (_iteratorNormalCompletion = (_step = _iterator.next()).done) {
-                  _context5.next = 16;
+                  _context5.next = 15;
                   break;
                 }
 
                 key = _step.value;
 
-                if (!(users[key]._id === this._currentUserId)) {
-                  _context5.next = 13;
+                if (!(users[key].username === username)) {
+                  _context5.next = 12;
                   break;
                 }
 
                 return _context5.abrupt('return', users[key]);
 
-              case 13:
+              case 12:
                 _iteratorNormalCompletion = true;
-                _context5.next = 9;
+                _context5.next = 8;
                 break;
 
-              case 16:
-                _context5.next = 22;
+              case 15:
+                _context5.next = 21;
                 break;
 
-              case 18:
-                _context5.prev = 18;
-                _context5.t0 = _context5['catch'](7);
+              case 17:
+                _context5.prev = 17;
+                _context5.t0 = _context5['catch'](6);
                 _didIteratorError = true;
                 _iteratorError = _context5.t0;
 
-              case 22:
+              case 21:
+                _context5.prev = 21;
                 _context5.prev = 22;
-                _context5.prev = 23;
 
                 if (!_iteratorNormalCompletion && _iterator.return) {
                   _iterator.return();
                 }
 
-              case 25:
-                _context5.prev = 25;
+              case 24:
+                _context5.prev = 24;
 
                 if (!_didIteratorError) {
-                  _context5.next = 28;
+                  _context5.next = 27;
                   break;
                 }
 
                 throw _iteratorError;
 
+              case 27:
+                return _context5.finish(24);
+
               case 28:
-                return _context5.finish(25);
+                return _context5.finish(21);
 
               case 29:
-                return _context5.finish(22);
-
-              case 30:
               case 'end':
                 return _context5.stop();
             }
           }
-        }, _callee5, this, [[7, 18, 22, 30], [23,, 25, 29]]);
+        }, _callee5, this, [[6, 17, 21, 29], [22,, 24, 28]]);
       }));
 
-      function getUser() {
+      function getUser(_x4) {
         return _ref5.apply(this, arguments);
       }
 
@@ -596,7 +624,7 @@ var Masq = function () {
         }, _callee7, this, [[6, 17, 21, 29], [22,, 24, 28]]);
       }));
 
-      function setProfile(_x4) {
+      function setProfile(_x5) {
         return _ref7.apply(this, arguments);
       }
 
@@ -619,7 +647,7 @@ var Masq = function () {
     key: 'signIn',
     value: function () {
       var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(username, passphrase) {
-        var users, user;
+        var userInfo, users, user;
         return _regenerator2.default.wrap(function _callee8$(_context8) {
           while (1) {
             switch (_context8.prev = _context8.next) {
@@ -641,63 +669,68 @@ var Masq = function () {
 
               case 4:
                 _context8.next = 6;
-                return this.publicStore.getItem('userList');
+                return this.getUser(username);
 
               case 6:
+                userInfo = _context8.sent;
+                _context8.next = 9;
+                return this.publicStore.getItem('userList');
+
+              case 9:
                 users = _context8.sent;
 
                 if (users[username]) {
-                  _context8.next = 9;
+                  _context8.next = 12;
                   break;
                 }
 
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.USERNAMENOTFOUND);
 
-              case 9:
-                _context8.next = 11;
-                return _masqCrypto2.default.utils.deriveKey(passphrase);
+              case 12:
+                _context8.next = 14;
+                return _masqCrypto2.default.utils.deriveKey(passphrase, userInfo.salt);
 
-              case 11:
+              case 14:
                 this.key = _context8.sent;
 
                 this._currentUserId = users[username]._id;
                 // Initialise the profile instance
 
                 if (this.profileStore) {
-                  _context8.next = 17;
+                  _context8.next = 20;
                   break;
                 }
 
-                _context8.next = 16;
+                _context8.next = 19;
                 return this.initInstance(this._currentUserId, this.key);
 
-              case 16:
+              case 19:
                 this.profileStore = _context8.sent;
 
-              case 17:
-                _context8.prev = 17;
-                _context8.next = 20;
+              case 20:
+                _context8.prev = 20;
+                _context8.next = 23;
                 return this.getProfile();
 
-              case 20:
+              case 23:
                 user = _context8.sent;
-                _context8.next = 26;
+                _context8.next = 29;
                 break;
 
-              case 23:
-                _context8.prev = 23;
-                _context8.t0 = _context8['catch'](17);
+              case 26:
+                _context8.prev = 26;
+                _context8.t0 = _context8['catch'](20);
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
 
-              case 26:
+              case 29:
               case 'end':
                 return _context8.stop();
             }
           }
-        }, _callee8, this, [[17, 23]]);
+        }, _callee8, this, [[20, 26]]);
       }));
 
-      function signIn(_x5, _x6) {
+      function signIn(_x6, _x7) {
         return _ref8.apply(this, arguments);
       }
 
@@ -715,6 +748,7 @@ var Masq = function () {
       // TODO delete passphrase from memory
       this._currentUserId = null;
       this.profileStore = null;
+      this.aesCipher = null;
     }
 
     /**
@@ -774,7 +808,7 @@ var Masq = function () {
         }, _callee9, this);
       }));
 
-      function initInstance(_x7, _x8) {
+      function initInstance(_x8, _x9) {
         return _ref9.apply(this, arguments);
       }
 
@@ -811,7 +845,7 @@ var Masq = function () {
         }, _callee10, this);
       }));
 
-      function deleteInstance(_x9) {
+      function deleteInstance(_x10) {
         return _ref10.apply(this, arguments);
       }
 
@@ -872,7 +906,7 @@ var Masq = function () {
         }, _callee11, this);
       }));
 
-      function getAppIdByToken(_x10) {
+      function getAppIdByToken(_x11) {
         return _ref11.apply(this, arguments);
       }
 
@@ -935,7 +969,7 @@ var Masq = function () {
         }, _callee12, this);
       }));
 
-      function addApp(_x11) {
+      function addApp(_x12) {
         return _ref12.apply(this, arguments);
       }
 
@@ -1000,7 +1034,7 @@ var Masq = function () {
         }, _callee13, this);
       }));
 
-      function deleteApp(_x12) {
+      function deleteApp(_x13) {
         return _ref13.apply(this, arguments);
       }
 
@@ -1055,7 +1089,7 @@ var Masq = function () {
         }, _callee14, this);
       }));
 
-      function updateApp(_x13) {
+      function updateApp(_x14) {
         return _ref14.apply(this, arguments);
       }
 
