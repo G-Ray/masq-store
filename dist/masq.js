@@ -203,73 +203,77 @@ var Masq = function () {
                 salt = window.crypto.getRandomValues(new Uint8Array(16));
 
                 user['salt'] = salt;
-                _context2.next = 12;
+                console.log(user);
+                console.log(_masqCrypto2.default.utils);
+                _context2.next = 14;
                 return _masqCrypto2.default.utils.deriveKey(user.password, salt);
 
-              case 12:
+              case 14:
                 derivedkey = _context2.sent;
 
+                console.log(derivedkey);
+
                 if (!(!this.key || this.key.length === 0)) {
-                  _context2.next = 15;
+                  _context2.next = 18;
                   break;
                 }
 
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
 
-              case 15:
-                _context2.next = 17;
+              case 18:
+                _context2.next = 20;
                 return new _masqCrypto2.default.AES({ key: derivedkey });
 
-              case 17:
+              case 20:
                 aesCipher = _context2.sent;
 
                 delete user.password;
-                _context2.next = 21;
+                _context2.next = 24;
                 return aesCipher.genAESKey();
 
-              case 21:
+              case 24:
                 masterKey = _context2.sent;
-                _context2.next = 24;
+                _context2.next = 27;
                 return aesCipher.exportKeyRaw(masterKey);
 
-              case 24:
+              case 27:
                 masterKeyRaw = _context2.sent;
-                _context2.next = 27;
+                _context2.next = 30;
                 return aesCipher.encrypt(masterKeyRaw);
 
-              case 27:
+              case 30:
                 encryptedMasterKey = _context2.sent;
 
                 user['encryptedMasterKey'] = encryptedMasterKey;
 
-                _context2.next = 31;
+                _context2.next = 34;
                 return this.publicStore.setItem('userList', users);
 
-              case 31:
-                _context2.next = 33;
+              case 34:
+                _context2.next = 36;
                 return this.initInstance(user._id, masterKeyRaw);
 
-              case 33:
+              case 36:
                 this.profileStore = _context2.sent;
-                _context2.next = 36;
+                _context2.next = 39;
                 return this.profileStore.setItem('appList', {});
 
-              case 36:
-                _context2.next = 38;
+              case 39:
+                _context2.next = 41;
                 return this.profileStore.setItem('deviceList', {});
 
-              case 38:
-                _context2.next = 40;
+              case 41:
+                _context2.next = 43;
                 return this.profileStore.setItem('tokenList', {});
 
-              case 40:
-                _context2.next = 42;
+              case 43:
+                _context2.next = 45;
                 return this.signOut();
 
-              case 42:
+              case 45:
                 return _context2.abrupt('return', user._id);
 
-              case 43:
+              case 46:
               case 'end':
                 return _context2.stop();
             }
