@@ -203,31 +203,31 @@ var Masq = function () {
                 salt = window.crypto.getRandomValues(new Uint8Array(16));
 
                 user['salt'] = salt;
-                console.log(user);
                 console.log(_masqCrypto2.default);
-                _context2.next = 14;
+                _context2.next = 13;
                 return _masqCrypto2.default.utils.deriveKey(user.password, salt);
 
-              case 14:
+              case 13:
                 derivedkey = _context2.sent;
 
                 console.log(derivedkey);
 
                 if (!(!derivedkey || derivedkey.length === 0)) {
-                  _context2.next = 18;
+                  _context2.next = 17;
                   break;
                 }
 
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
 
-              case 18:
-                _context2.next = 20;
+              case 17:
+                _context2.next = 19;
                 return new _masqCrypto2.default.AES({ key: derivedkey });
 
-              case 20:
+              case 19:
                 aesCipher = _context2.sent;
 
                 delete user.password;
+                delete user.passwordConfirmation;
                 _context2.next = 24;
                 return aesCipher.genAESKey();
 
@@ -245,35 +245,36 @@ var Masq = function () {
                 encryptedMasterKey = _context2.sent;
 
                 user['encryptedMasterKey'] = encryptedMasterKey;
+                console.log(user);
 
-                _context2.next = 34;
+                _context2.next = 35;
                 return this.publicStore.setItem('userList', users);
 
-              case 34:
-                _context2.next = 36;
-                return this.initInstance(user._id, masterKeyRaw);
+              case 35:
+                _context2.next = 37;
+                return this.initInstance(user._id, masterKey);
 
-              case 36:
+              case 37:
                 this.profileStore = _context2.sent;
-                _context2.next = 39;
+                _context2.next = 40;
                 return this.profileStore.setItem('appList', {});
 
-              case 39:
-                _context2.next = 41;
+              case 40:
+                _context2.next = 42;
                 return this.profileStore.setItem('deviceList', {});
 
-              case 41:
-                _context2.next = 43;
+              case 42:
+                _context2.next = 44;
                 return this.profileStore.setItem('tokenList', {});
 
-              case 43:
-                _context2.next = 45;
+              case 44:
+                _context2.next = 46;
                 return this.signOut();
 
-              case 45:
+              case 46:
                 return _context2.abrupt('return', user._id);
 
-              case 46:
+              case 47:
               case 'end':
                 return _context2.stop();
             }

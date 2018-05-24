@@ -114,7 +114,6 @@ class Masq {
     users[user.username] = user
     const salt = window.crypto.getRandomValues(new Uint8Array(16))
     user['salt'] = salt
-    console.log(user)
     console.log(MasqCrypto)
     let derivedkey = await MasqCrypto.utils.deriveKey(user.password, salt)
     console.log(derivedkey)
@@ -124,14 +123,16 @@ class Masq {
     // AES instance just to wrap the master key with the derived key
     const aesCipher = await new MasqCrypto.AES({key: derivedkey})
     delete user.password
+    delete user.passwordConfirmation
     const masterKey = await aesCipher.genAESKey()
     // AES instance for data encryption
     const masterKeyRaw = await aesCipher.exportKeyRaw(masterKey)
     const encryptedMasterKey = await aesCipher.encrypt(masterKeyRaw)
     user['encryptedMasterKey'] = encryptedMasterKey
+    console.log(user)
 
     await this.publicStore.setItem('userList', users)
-    this.profileStore = await this.initInstance(user._id, masterKeyRaw)
+    this.profileStore = await this.initInstance(user._id, masterKey)
     await this.profileStore.setItem('appList', {})
     await this.profileStore.setItem('deviceList', {})
     await this.profileStore.setItem('tokenList', {})
