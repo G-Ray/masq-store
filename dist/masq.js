@@ -213,7 +213,7 @@ var Masq = function () {
 
                 console.log(derivedkey);
 
-                if (!(!this.key || this.key.length === 0)) {
+                if (!(!derivedkey || derivedkey.length === 0)) {
                   _context2.next = 18;
                   break;
                 }

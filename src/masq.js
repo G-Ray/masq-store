@@ -118,7 +118,7 @@ class Masq {
     console.log(MasqCrypto)
     let derivedkey = await MasqCrypto.utils.deriveKey(user.password, salt)
     console.log(derivedkey)
-    if (!this.key || this.key.length === 0) {
+    if (!derivedkey || derivedkey.length === 0) {
       throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
     }
     // AES instance just to wrap the master key with the derived key
