@@ -652,7 +652,7 @@ var Masq = function () {
     key: 'signIn',
     value: function () {
       var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(username, passphrase) {
-        var userInfo, users, user;
+        var users, derivedkey, aesCipher, masterKeyRaw, masterKeyCryptoKey, user;
         return _regenerator2.default.wrap(function _callee8$(_context8) {
           while (1) {
             switch (_context8.prev = _context8.next) {
@@ -674,65 +674,86 @@ var Masq = function () {
 
               case 4:
                 _context8.next = 6;
-                return this.getUser(username);
-
-              case 6:
-                userInfo = _context8.sent;
-                _context8.next = 9;
                 return this.publicStore.getItem('userList');
 
-              case 9:
+              case 6:
                 users = _context8.sent;
 
                 if (users[username]) {
-                  _context8.next = 12;
+                  _context8.next = 9;
                   break;
                 }
 
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.USERNAMENOTFOUND);
 
+              case 9:
+                console.log('call pbkdf2', passphrase, users[username].salt);
+                _context8.next = 12;
+                return _masqCrypto2.default.utils.deriveKey(passphrase, users[username].salt);
+
               case 12:
-                _context8.next = 14;
-                return _masqCrypto2.default.utils.deriveKey(passphrase, userInfo.salt);
+                derivedkey = _context8.sent;
 
-              case 14:
-                this.key = _context8.sent;
+                console.log(derivedkey);
 
-                this._currentUserId = users[username]._id;
-                // Initialise the profile instance
-
-                if (this.profileStore) {
-                  _context8.next = 20;
+                if (!(!derivedkey || derivedkey.length === 0)) {
+                  _context8.next = 16;
                   break;
                 }
 
-                _context8.next = 19;
-                return this.initInstance(this._currentUserId, this.key);
-
-              case 19:
-                this.profileStore = _context8.sent;
-
-              case 20:
-                _context8.prev = 20;
-                _context8.next = 23;
-                return this.getProfile();
-
-              case 23:
-                user = _context8.sent;
-                _context8.next = 29;
-                break;
-
-              case 26:
-                _context8.prev = 26;
-                _context8.t0 = _context8['catch'](20);
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
 
+              case 16:
+                _context8.next = 18;
+                return new _masqCrypto2.default.AES({ key: derivedkey });
+
+              case 18:
+                aesCipher = _context8.sent;
+                _context8.next = 21;
+                return aesCipher.encrypt(users[username].encryptedMasterKey);
+
+              case 21:
+                masterKeyRaw = _context8.sent;
+                _context8.next = 24;
+                return aesCipher.importKeyRaw(masterKeyRaw, 'raw');
+
+              case 24:
+                masterKeyCryptoKey = _context8.sent;
+
+                if (this.profileStore) {
+                  _context8.next = 29;
+                  break;
+                }
+
+                _context8.next = 28;
+                return this.initInstance(this._currentUserId, masterKeyCryptoKey);
+
+              case 28:
+                this.profileStore = _context8.sent;
+
               case 29:
+                _context8.prev = 29;
+                user = this.profileStore.dumpStore();
+
+                console.log(user);
+                // TODO add a test to check the key, ex JSON .parse
+                _context8.next = 37;
+                break;
+
+              case 34:
+                _context8.prev = 34;
+                _context8.t0 = _context8['catch'](29);
+                throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
+
+              case 37:
+                this._currentUserId = users[username]._id;
+
+              case 38:
               case 'end':
                 return _context8.stop();
             }
           }
-        }, _callee8, this, [[20, 26]]);
+        }, _callee8, this, [[29, 34]]);
       }));
 
       function signIn(_x6, _x7) {

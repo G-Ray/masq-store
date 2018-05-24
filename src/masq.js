@@ -115,7 +115,7 @@ class Masq {
     const salt = window.crypto.getRandomValues(new Uint8Array(16))
     user['salt'] = salt
     console.log(MasqCrypto)
-    let derivedkey = await MasqCrypto.utils.deriveKey(user.password, salt)
+    const derivedkey = await MasqCrypto.utils.deriveKey(user.password, salt)
     console.log(derivedkey)
     if (!derivedkey || derivedkey.length === 0) {
       throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
@@ -248,24 +248,36 @@ class Masq {
     if (!passphrase || passphrase === '') {
       throw common.generateError(common.ERRORS.NOPASSPHRASE)
     }
-    const userInfo = await this.getUser(username)
     const users = await this.publicStore.getItem('userList')
     if (!users[username]) {
       throw common.generateError(common.ERRORS.USERNAMENOTFOUND)
     }
-    this.key = await MasqCrypto.utils.deriveKey(passphrase, userInfo.salt)
-    this._currentUserId = users[username]._id
+    console.log('call pbkdf2', passphrase, users[username].salt)
+    const derivedkey = await MasqCrypto.utils.deriveKey(passphrase, users[username].salt)
+    console.log(derivedkey)
+    if (!derivedkey || derivedkey.length === 0) {
+      throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
+    }
+    // AES instance just to wrap the master key with the derived key
+    const aesCipher = await new MasqCrypto.AES({key: derivedkey})
+
+    // AES instance for data encryption
+    const masterKeyRaw = await aesCipher.encrypt(users[username].encryptedMasterKey)
+    const masterKeyCryptoKey = await aesCipher.importKeyRaw(masterKeyRaw, 'raw')
+
     // Initialise the profile instance
     if (!this.profileStore) {
-      this.profileStore = await this.initInstance(this._currentUserId, this.key)
+      this.profileStore = await this.initInstance(this._currentUserId, masterKeyCryptoKey)
     }
     // test if the passphrase is valid
     try {
-      const user = await this.getProfile()
+      const user = this.profileStore.dumpStore()
+      console.log(user)
       // TODO add a test to check the key, ex JSON .parse
     } catch (error) {
       throw common.generateError(common.ERRORS.WRONGPASSPHRASE)
     }
+    this._currentUserId = users[username]._id
   }
 
   /**
