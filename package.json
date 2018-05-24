@@ -18,7 +18,7 @@
   "dependencies": {
     "localforage": "^1.7.1",
     "masq-common": "git+https://github.com/QwantResearch/masq-common.git",
-    "masq-crypto": "git+https://github.com/QwantResearch/masq-crypto.git#issue-2"
+    "masq-crypto": "git+https://github.com/QwantResearch/masq-crypto.git#issue-at-rest"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
