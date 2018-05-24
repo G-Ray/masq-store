@@ -239,7 +239,7 @@ var Masq = function () {
               case 27:
                 masterKeyRaw = _context2.sent;
                 _context2.next = 30;
-                return aesCipher.encrypt(masterKeyRaw);
+                return aesCipher.encrypt(JSON.stringify(masterKeyRaw));
 
               case 30:
                 encryptedMasterKey = _context2.sent;
@@ -652,7 +652,7 @@ var Masq = function () {
     key: 'signIn',
     value: function () {
       var _ref8 = (0, _asyncToGenerator3.default)( /*#__PURE__*/_regenerator2.default.mark(function _callee8(username, passphrase) {
-        var users, derivedkey, aesCipher, masterKeyRaw, masterKeyCryptoKey, user;
+        var users, derivedkey, aesCipher, masterKey, masterKeyParsed, masterKeyCryptoKey, user;
         return _regenerator2.default.wrap(function _callee8$(_context8) {
           while (1) {
             switch (_context8.prev = _context8.next) {
@@ -710,50 +710,51 @@ var Masq = function () {
               case 18:
                 aesCipher = _context8.sent;
                 _context8.next = 21;
-                return aesCipher.encrypt(users[username].encryptedMasterKey);
+                return aesCipher.decrypt(users[username].encryptedMasterKey);
 
               case 21:
-                masterKeyRaw = _context8.sent;
-                _context8.next = 24;
-                return aesCipher.importKeyRaw(masterKeyRaw, 'raw');
+                masterKey = _context8.sent;
+                masterKeyParsed = JSON.parse(masterKey);
+                _context8.next = 25;
+                return aesCipher.importKeyRaw(masterKeyParsed, 'raw');
 
-              case 24:
+              case 25:
                 masterKeyCryptoKey = _context8.sent;
 
                 if (this.profileStore) {
-                  _context8.next = 29;
+                  _context8.next = 30;
                   break;
                 }
 
-                _context8.next = 28;
+                _context8.next = 29;
                 return this.initInstance(this._currentUserId, masterKeyCryptoKey);
 
-              case 28:
+              case 29:
                 this.profileStore = _context8.sent;
 
-              case 29:
-                _context8.prev = 29;
+              case 30:
+                _context8.prev = 30;
                 user = this.profileStore.dumpStore();
 
                 console.log(user);
                 // TODO add a test to check the key, ex JSON .parse
-                _context8.next = 37;
+                _context8.next = 38;
                 break;
 
-              case 34:
-                _context8.prev = 34;
-                _context8.t0 = _context8['catch'](29);
+              case 35:
+                _context8.prev = 35;
+                _context8.t0 = _context8['catch'](30);
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
 
-              case 37:
+              case 38:
                 this._currentUserId = users[username]._id;
 
-              case 38:
+              case 39:
               case 'end':
                 return _context8.stop();
             }
           }
-        }, _callee8, this, [[29, 34]]);
+        }, _callee8, this, [[30, 35]]);
       }));
 
       function signIn(_x6, _x7) {

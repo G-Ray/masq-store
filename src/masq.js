@@ -127,7 +127,7 @@ class Masq {
     const masterKey = await aesCipher.genAESKey()
     // AES instance for data encryption
     const masterKeyRaw = await aesCipher.exportKeyRaw(masterKey)
-    const encryptedMasterKey = await aesCipher.encrypt(masterKeyRaw)
+    const encryptedMasterKey = await aesCipher.encrypt(JSON.stringify(masterKeyRaw))
     user['encryptedMasterKey'] = encryptedMasterKey
     console.log(user)
 
@@ -262,8 +262,9 @@ class Masq {
     const aesCipher = await new MasqCrypto.AES({key: derivedkey})
 
     // AES instance for data encryption
-    const masterKeyRaw = await aesCipher.encrypt(users[username].encryptedMasterKey)
-    const masterKeyCryptoKey = await aesCipher.importKeyRaw(masterKeyRaw, 'raw')
+    const masterKey = await aesCipher.decrypt(users[username].encryptedMasterKey)
+    const masterKeyParsed = JSON.parse(masterKey)
+    const masterKeyCryptoKey = await aesCipher.importKeyRaw(masterKeyParsed, 'raw')
 
     // Initialise the profile instance
     if (!this.profileStore) {
