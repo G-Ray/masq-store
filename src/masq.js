@@ -263,6 +263,7 @@ class Masq {
 
     // AES instance for data encryption
     const masterKey = await aesCipher.decrypt(users[username].encryptedMasterKey)
+    console.log(masterKey)
     const masterKeyParsed = JSON.parse(masterKey)
     const masterKeyCryptoKey = await aesCipher.importKeyRaw(masterKeyParsed, 'raw')
 

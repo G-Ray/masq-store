@@ -714,47 +714,49 @@ var Masq = function () {
 
               case 21:
                 masterKey = _context8.sent;
+
+                console.log(masterKey);
                 masterKeyParsed = JSON.parse(masterKey);
-                _context8.next = 25;
+                _context8.next = 26;
                 return aesCipher.importKeyRaw(masterKeyParsed, 'raw');
 
-              case 25:
+              case 26:
                 masterKeyCryptoKey = _context8.sent;
 
                 if (this.profileStore) {
-                  _context8.next = 30;
+                  _context8.next = 31;
                   break;
                 }
 
-                _context8.next = 29;
+                _context8.next = 30;
                 return this.initInstance(this._currentUserId, masterKeyCryptoKey);
 
-              case 29:
+              case 30:
                 this.profileStore = _context8.sent;
 
-              case 30:
-                _context8.prev = 30;
+              case 31:
+                _context8.prev = 31;
                 user = this.profileStore.dumpStore();
 
                 console.log(user);
                 // TODO add a test to check the key, ex JSON .parse
-                _context8.next = 38;
+                _context8.next = 39;
                 break;
 
-              case 35:
-                _context8.prev = 35;
-                _context8.t0 = _context8['catch'](30);
+              case 36:
+                _context8.prev = 36;
+                _context8.t0 = _context8['catch'](31);
                 throw _masqCommon2.default.generateError(_masqCommon2.default.ERRORS.WRONGPASSPHRASE);
 
-              case 38:
+              case 39:
                 this._currentUserId = users[username]._id;
 
-              case 39:
+              case 40:
               case 'end':
                 return _context8.stop();
             }
           }
-        }, _callee8, this, [[30, 35]]);
+        }, _callee8, this, [[31, 36]]);
       }));
 
       function signIn(_x6, _x7) {
