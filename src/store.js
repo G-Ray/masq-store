@@ -13,6 +13,12 @@ class Store {
     this.storage = storage || new this.InMemoryStorage()
   }
 
+  _checkKey (key) {
+    if (typeof key !== 'string' || key === '') {
+      throw common.generateError(common.ERRORS.NOVALUE)
+    }
+  }
+
   async init () {
     if (this.storage.setItem && this.storage.getItem) {
       let inst = await this.storage.getItem(this.id)
@@ -40,9 +46,7 @@ class Store {
    */
   async setItem (key, value) {
     // TODO encrypt
-    if (!key || key === '') {
-      throw common.generateError(common.ERRORS.NOVALUE)
-    }
+    this._checkKey(key)
     if (this.storage.setItem && this.storage.getItem) {
       let inst = await this.storage.getItem(this.id)
       inst[key] = value
@@ -66,9 +70,7 @@ class Store {
    */
   async getItem (key) {
     // TODO decrypt
-    if (!key || key === '') {
-      throw common.generateError(common.ERRORS.NOVALUE)
-    }
+    this._checkKey(key)
     if (this.storage.getItem) {
       let inst = await this.storage.getItem(this.id)
       return inst[key]
@@ -79,9 +81,7 @@ class Store {
    * Remove an item corresponding to the received key.
    */
   async removeItem (key) {
-    if (!key || key === '') {
-      throw common.generateError(common.ERRORS.NOVALUE)
-    }
+    this._checkKey(key)
     if (this.storage.setItem && this.storage.getItem) {
       let inst = await this.storage.getItem(this.id)
       if (!inst[key]) {
