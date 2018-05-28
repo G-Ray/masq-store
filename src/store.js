@@ -11,6 +11,10 @@ class Store {
   constructor (id, storage) {
     this.id = id
     this.storage = storage || new this.InMemoryStorage()
+
+    if (!this.storage.setItem || !this.storage.getItem) {
+      throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
+    }
   }
 
   _checkKey (key) {
@@ -20,13 +24,9 @@ class Store {
   }
 
   async init () {
-    if (this.storage.setItem && this.storage.getItem) {
-      let inst = await this.storage.getItem(this.id)
-      if (!inst) {
-        await this.storage.setItem(this.id, {})
-      }
-    } else {
-      throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
+    let inst = await this.storage.getItem(this.id)
+    if (!inst) {
+      await this.storage.setItem(this.id, {})
     }
   }
 
@@ -47,22 +47,17 @@ class Store {
   async setItem (key, value) {
     // TODO encrypt
     this._checkKey(key)
-    if (this.storage.setItem && this.storage.getItem) {
-      let inst = await this.storage.getItem(this.id)
-      inst[key] = value
-      return this.storage.setItem(this.id, inst)
-    }
-    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
+    let inst = await this.storage.getItem(this.id)
+    inst[key] = value
+    return this.storage.setItem(this.id, inst)
   }
 
   /**
    * Return an array of storage keys
    */
   async listKeys () {
-    if (this.storage.getItem) {
-      let inst = await this.storage.getItem(this.id)
-      return Object.keys(inst)
-    }
+    let inst = await this.storage.getItem(this.id)
+    return Object.keys(inst)
     throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
   }
   /**
@@ -71,26 +66,20 @@ class Store {
   async getItem (key) {
     // TODO decrypt
     this._checkKey(key)
-    if (this.storage.getItem) {
-      let inst = await this.storage.getItem(this.id)
-      return inst[key]
-    }
-    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
+    let inst = await this.storage.getItem(this.id)
+    return inst[key]
   }
   /**
    * Remove an item corresponding to the received key.
    */
   async removeItem (key) {
     this._checkKey(key)
-    if (this.storage.setItem && this.storage.getItem) {
-      let inst = await this.storage.getItem(this.id)
-      if (!inst[key]) {
-        throw common.generateError(common.ERRORS.NOVALUE)
-      }
-      delete inst[key]
-      return this.storage.setItem(this.id, inst)
+    let inst = await this.storage.getItem(this.id)
+    if (!inst[key]) {
+      throw common.generateError(common.ERRORS.NOVALUE)
     }
-    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
+    delete inst[key]
+    return this.storage.setItem(this.id, inst)
   }
 
   /**
@@ -98,10 +87,7 @@ class Store {
    *
    */
   async clear () {
-    if (this.storage.setItem) {
-      return this.storage.setItem(this.id, {})
-    }
-    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
+    return this.storage.setItem(this.id, {})
   }
 
   /**
@@ -109,10 +95,7 @@ class Store {
    *
    */
   async dumpStore () {
-    if (this.storage.getItem) {
-      return this.storage.getItem(this.id)
-    }
-    throw common.generateError(common.ERRORS.FUNCTIONNOTDEFINED)
+    return this.storage.getItem(this.id)
   }
 }
 

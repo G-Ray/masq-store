@@ -128,53 +128,13 @@ describe('Store API using inMemoryStorage', () => {
 
 describe('Store API bad interface', () => {
   let store = null
-  beforeAll(async () => {
-    store = new Store.Store('123', {})
-  })
-  it('should not init', async () => {
+
+  it('should throw error when calling constructor', async () => {
     expect.assertions(1)
-    await store.init().catch(e => {
-      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
-    })
-  })
-  it('should set a key', async () => {
-    expect.assertions(1)
-    const key = 'hello'
-    const value = 'world'
-    await store.setItem(key, value).catch(e => {
-      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
-    })
-  })
-  it('should fail to get the previous key', async () => {
-    const key = 'hello'
-    expect.assertions(1)
-    await store.getItem(key).catch(e => {
-      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
-    })
-  })
-  it('should fail to get all storage data', async () => {
-    expect.assertions(1)
-    await store.dumpStore().catch(e => {
-      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
-    })
-  })
-  it('should fail to remove a key', async () => {
-    const key = 'hello'
-    expect.assertions(1)
-    await store.removeItem(key).catch(e => {
-      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
-    })
-  })
-  it('should fail to clear the storage', async () => {
-    expect.assertions(1)
-    await store.clear().catch(e => {
-      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
-    })
-  })
-  it('should fail to list keys', async () => {
-    expect.assertions(1)
-    await store.listKeys().catch(e => {
-      expect(e.name).toEqual(common.ERRORS.FUNCTIONNOTDEFINED)
-    })
+    try {
+      store = new Store.Store('123', {})
+    } catch (err) {
+      expect(err).toBeDefined()
+    }
   })
 })
