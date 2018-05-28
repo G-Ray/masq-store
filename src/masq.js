@@ -79,11 +79,12 @@ class Masq {
   //   this._key = newKey
   // }
 
-  checkCurrentUser () {
+  _checkCurrentUser () {
     if (!this._currentUserId) {
       throw common.generateError(common.ERRORS.NOLOGGEDUSER)
     }
   }
+
   async init () {
     this.publicStore = await this.initInstance('public')
     let userList = await this.listUsers()
@@ -126,7 +127,7 @@ class Masq {
    * * @returns {Promise}
    */
   async deleteUser () {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     const user = await this.getUser()
     let users = await this.publicStore.getItem('userList')
     delete users[user.username]
@@ -143,7 +144,7 @@ class Masq {
    * @returns {Promise}
    */
   async updateUser (user) {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     let existingUser = await this.getUser()
     let users = await this.listUsers()
     // Get the user info object
@@ -172,7 +173,7 @@ class Masq {
    *
    */
   async getUser () {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     // Get the user public info
     let users = await this.publicStore.getItem('userList')
     for (let key of Object.keys(users)) {
@@ -189,7 +190,7 @@ class Masq {
    *
    */
   async getProfile () {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     return this.profileStore.dumpStore()
   }
   /**
@@ -199,7 +200,7 @@ class Masq {
    *
    */
   async setProfile (profile) {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     if (!profile) {
       throw common.generateError(common.ERRORS.NOVALUE)
     }
@@ -287,7 +288,7 @@ class Masq {
     if (!token) {
       throw common.generateError(common.ERRORS.NOVALUE)
     }
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     const user = await this.getProfile()
     return user.tokenList[token]
   }
@@ -301,7 +302,7 @@ class Masq {
  *
  */
   async addApp (appMeta) {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     common.checkObject(appMeta, requiredParameterApp)
     let user = await this.getProfile()
 
@@ -328,7 +329,7 @@ class Masq {
  * @returns {Promise}
  */
   async deleteApp (url) {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     if (!url || url === '') {
       throw common.generateError(common.ERRORS.WRONGPARAMETER)
     }
@@ -358,7 +359,7 @@ class Masq {
  * @returns {Promise}
  */
   async updateApp (appMeta) {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     common.checkObject(appMeta, ['url'])
     const appId = this.deriveAppId(appMeta.url)
     let user = await this.getProfile()
@@ -378,7 +379,7 @@ class Masq {
  *
  */
   async listApps () {
-    this.checkCurrentUser()
+    this._checkCurrentUser()
     let user = await this.getProfile()
     return user.appList
   }
