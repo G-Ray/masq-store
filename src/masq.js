@@ -220,7 +220,7 @@ class Masq {
    *
    */
   async signIn (username) {
-    if (!username || username === '') {
+    if (typeof username !== 'string' || username === '') {
       throw common.generateError(common.ERRORS.NOUSERNAME)
     }
 
@@ -330,7 +330,7 @@ class Masq {
  */
   async deleteApp (url) {
     this._checkCurrentUser()
-    if (!url || url === '') {
+    if (typeof url !== 'string' || url === '') {
       throw common.generateError(common.ERRORS.WRONGPARAMETER)
     }
     let user = await this.getProfile()
